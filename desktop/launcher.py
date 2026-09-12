@@ -65,13 +65,54 @@ def wait_for(url: str, timeout: float = 30.0) -> bool:
     return False
 
 
+class WindowApi:
+    """Exposed to the page as window.pywebview.api - the custom title bar's minimize / maximize / close."""
+
+    def __init__(self) -> None:
+        self._window = None       # underscore: pywebview serialises public attributes into the JS bridge
+        self._maximized = False
+
+    def minimize(self) -> None:
+        self._window.minimize()
+
+    def toggle_maximize(self) -> bool:
+        if self._maximized:
+            self._window.restore()
+        else:
+            self._window.maximize()
+        self._maximized = not self._maximized
+        return self._maximized
+
+    def is_maximized(self) -> bool:
+        return self._maximized
+
+    def close(self) -> None:
+        self._window.destroy()
+
+
 def open_window(url: str, d: Path) -> None:
     import webview
-    window = webview.create_window(APP_NAME, url, width=1480, height=920, min_size=(1100, 680),
-                                   background_color="#0f0f0f", text_select=True)
-    # storage_path keeps localStorage (theme, tabs, graph settings) between launches
-    webview.start(gui="edgechromium", private_mode=False, storage_path=str(d / "webview"), debug="--devtools" in sys.argv)
-    del window
+    api = WindowApi()
+    # size to the primary screen (90%, capped) and centre it; frameless windows get no help from Windows here
+    try:
+        scr = webview.screens[0]
+        width, height = min(1480, int(scr.width * 0.9)), min(920, int(scr.height * 0.88))
+        x, y = max(0, (scr.width - width) // 2), max(0, (scr.height - height) // 2 - 20)
+    except Exception:
+        width, height, x, y = 1280, 820, None, None
+    # frameless: the React TitleBar component draws the caption and window buttons (Discord / Claude Desktop style)
+    window = webview.create_window(APP_NAME, url, width=width, height=height, x=x, y=y, min_size=(1000, 640), frameless=True,
+                                   easy_drag=False, background_color="#0f0f0f", text_select=True, js_api=api)
+    api._window = window
+    for name, value in (("maximized", True), ("restored", False)):   # keep the state honest for Win+Up / snap
+        try:
+            getattr(window.events, name).__iadd__(lambda v=value: setattr(api, "_maximized", v))
+        except AttributeError:
+            pass
+    # storage_path keeps localStorage (theme, tabs, graph settings) between launches; icon = taskbar / alt-tab
+    icon = BUNDLE / "icon.ico" if FROZEN else Path(__file__).resolve().parent / "icon.ico"
+    webview.start(gui="edgechromium", private_mode=False, storage_path=str(d / "webview"), debug="--devtools" in sys.argv,
+                  icon=str(icon) if icon.exists() else None)
 
 
 def already_running() -> bool:

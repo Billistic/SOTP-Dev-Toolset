@@ -59,7 +59,7 @@ export function StringsView() {
         </nav>
         {tab === 'all' && (
           <>
-            <div className={styles.search}><Search size={14} /><input type="search" placeholder="Search IDs and text…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+            <div className={styles.search}><Search size={14} /><input type="search" data-bare placeholder="Search IDs and text…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
             <label className={styles.check}><input type="checkbox" checked={modifiedOnly} onChange={(e) => setModifiedOnly(e.target.checked)} /> changed only</label>
             <span className="muted">{data ? `${data.rows.length} of ${data.total}` : ''}</span>
           </>

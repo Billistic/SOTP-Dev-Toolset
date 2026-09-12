@@ -84,7 +84,7 @@ export function AssetPicker({ kind, value, fieldKey, onPick, onClose }: Props) {
       <div className={styles.searchRow}>
         <div className={styles.search}>
           <Search size={14} />
-          <input type="search" value={query} autoFocus spellCheck={false} placeholder="Filter by name…"
+          <input type="search" data-bare value={query} autoFocus spellCheck={false} placeholder="Filter by name…"
                  onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey} onFocus={(e) => e.target.select()} />
         </div>
         {kind === 'entity' && (

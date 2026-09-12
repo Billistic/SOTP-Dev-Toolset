@@ -37,3 +37,5 @@
 .vHandle:hover { background: var(--accent-dim); }
 .hHandle { height: 4px; cursor: row-resize; background: transparent; margin-bottom: -2px; z-index: 2; }
 .hHandle:hover { background: var(--accent-dim); }
+
+html[data-desktop] .shell { border: 1px solid var(--border-default); }

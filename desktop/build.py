@@ -65,6 +65,7 @@ def build_exe() -> Path:
         "--distpath", str(DIST), "--workpath", str(STAGE / "pyi"), "--specpath", str(STAGE),
         "--paths", str(BACKEND),
         "--add-data", f"{STAGE / 'ui'}{os.pathsep}ui",
+        "--add-data", f"{HERE / 'icon.ico'}{os.pathsep}.",   # window / taskbar icon at runtime
         "--collect-submodules", "app",          # the backend package (routers are imported dynamically by name)
         "--collect-submodules", "uvicorn",      # loop / protocol implementations are chosen at runtime
         "--collect-all", "webview",             # WebView2 loader DLLs

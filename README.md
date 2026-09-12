@@ -41,8 +41,11 @@ anything written goes to a temp output root.
 
 ## Desktop app (installer / .exe)
 
-The tool also ships as a windowed desktop app: a native WebView2 window (`desktop/launcher.py`) hosting the
-built UI, with the FastAPI backend running inside the same process on a free local port. User data lives in
+The tool also ships as a windowed desktop app: a **frameless** native WebView2 window (`desktop/launcher.py`)
+hosting the built UI - the React `TitleBar` draws the caption, drag region and minimise / maximise / close
+buttons through pywebview's JS bridge (`window.pywebview.api`) - with the FastAPI backend running inside the
+same process on a free local port. The app icon is generated from `desktop/brand/emblem.svg` by
+`desktop/make_icon.py` (emblem inverted on a dark tile, rasterised with headless Edge). User data lives in
 `%LOCALAPPDATA%\SOTP Dev Env` (database, `.env`, `launcher.log`, window storage), so reinstalling keeps the
 project. A second launch shows an "already running" notice instead of starting another backend.
 
@@ -139,10 +142,12 @@ fields that feed the balance metrics), **Tree** (every node), **Weapons** (grid)
 
 ### Research tree and the relationship builder
 
-- **Research tree** shows the in-game screen layout per player and field. Dragging a node rewrites its
-  `researchWindowLocation.pos` (snap toggle keeps it on the slot grid and warns on a slot clash); dragging
-  from one node's port to another adds a `ResearchPrerequisite`; selecting a line and pressing Delete removes
-  it; double-click opens the entity.
+- **Research tree** has two layouts. **By tier** (default): one colour-coded column per `Tier`, rows ordered
+  by prerequisite depth so chains read left → right; dragging a node sideways into another column rewrites its
+  `Tier`. **Game layout**: exactly where the in-game research screen puts it; dragging rewrites
+  `researchWindowLocation.pos` (snap toggle keeps it on the slot grid and warns on a slot clash). In both,
+  dragging from one node's port to another adds a `ResearchPrerequisite`, selecting a line and pressing Delete
+  removes it, and double-click opens the entity. Tier colours are the `--tier-N` tokens.
 - **Relationships** is the global map. *Pathways* (Ships, Research, Abilities, Buffs, Squads, Modules,
   Planets, Players) are category filters over one graph whose edges are the entity references
   (`entity_references`). Anything a visible node points at outside the pathway appears as a dashed

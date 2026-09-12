@@ -35,7 +35,7 @@ export function AssetsView() {
       </aside>
       <section className={styles.main}>
         <div className={styles.toolbar}>
-          <div className={styles.search}><Search size={14} /><input type="search" placeholder={`Search ${KIND_LABEL[kind] ?? kind}…`} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+          <div className={styles.search}><Search size={14} /><input type="search" data-bare placeholder={`Search ${KIND_LABEL[kind] ?? kind}…`} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
           <span className="muted">{rows.length} shown</span>
         </div>
         <div className={styles.list}>

@@ -1,0 +1,21 @@
+.bar {
+  height: 34px;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+.brand { display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--text-secondary); font-size: var(--font-size-sm); -webkit-app-region: drag; }
+.title { font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; }
+.project { color: var(--text-muted); }
+.project::before { content: '/'; margin-right: 8px; color: var(--border-strong); }
+.drag { flex: 1; -webkit-app-region: drag; }
+
+.controls { display: flex; align-items: stretch; -webkit-app-region: no-drag; }
+.ctl { width: 46px; display: grid; place-items: center; color: var(--text-secondary); transition: background var(--transition), color var(--transition); }
+.ctl:hover { background: var(--bg-hover); color: var(--text-primary); }
+.close:hover { background: #c42b1c; color: #fff; }
+.restore { transform: scaleX(-1); }

@@ -1,5 +1,6 @@
 import { useProject } from '@/hooks/useProject'
 import { useUiStore } from '@/store/useUiStore'
+import { Logo } from '@/components/Brand/Brand'
 import styles from './WelcomeView.module.css'
 
 export function WelcomeView() {
@@ -7,7 +8,8 @@ export function WelcomeView() {
   const setActivity = useUiStore((s) => s.setActivity)
   return (
     <div className={styles.root}>
-      <h1 className={styles.title}>SOTP Dev Env <span className={styles.v}>v2</span></h1>
+      <Logo height={44} className={styles.logo} />
+      <h1 className={styles.title}>Dev Env <span className={styles.v}>v2</span></h1>
       <p className={styles.tag}>Entity, research, string and asset management for Sins of the Prophets — with link checking and balance analytics before anything hits the game.</p>
       {missing && (
         <div className={styles.step}>

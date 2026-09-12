@@ -20,7 +20,7 @@ body {
 .mono { font-family: var(--font-mono); }
 .muted { color: var(--text-secondary); }
 
-input[type="text"], input[type="number"], input[type="search"], select, textarea {
+input:not([type]), input[type="text"], input[type="number"], input[type="search"], input[type="password"], select, textarea {
   background: var(--bg-input);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -31,6 +31,9 @@ input[type="text"], input[type="number"], input[type="search"], select, textarea
 }
 input:hover, select:hover, textarea:hover { border-color: var(--border-strong); }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+/* inputs living inside a bordered wrapper (search boxes) draw no border or ring of their own */
+input[data-bare], input[data-bare]:hover, input[data-bare]:focus { border: none; box-shadow: none; background: transparent; }
+input[type="search"]::-webkit-search-cancel-button { filter: grayscale(1) brightness(0.8); }
 input[type="checkbox"] { accent-color: var(--accent); }
 
 .btn {

@@ -10,3 +10,5 @@
 
 .keys { color: var(--text-muted); font-size: var(--font-size-sm); margin-top: 12px; }
 kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--border-default); border-radius: 3px; background: var(--bg-elevated); }
+
+.logo { display: block; margin-bottom: 6px; color: var(--text-primary); opacity: 0.9; }

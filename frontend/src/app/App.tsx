@@ -5,6 +5,7 @@ import { EditorArea } from '@/layout/EditorArea/EditorArea'
 import { BottomPanel } from '@/layout/BottomPanel/BottomPanel'
 import { StatusBar } from '@/layout/StatusBar/StatusBar'
 import { ToastStack } from '@/components/ToastStack/ToastStack'
+import { TitleBar } from '@/components/TitleBar/TitleBar'
 import { StringEditorModal } from '@/components/StringEditorModal/StringEditorModal'
 import { useUiStore } from '@/store/useUiStore'
 import { useApplyTheme } from '@/hooks/useTheme'
@@ -48,6 +49,7 @@ export function App() {
 
   return (
     <div className={styles.shell}>
+      <TitleBar />
       <div className={styles.body} ref={bodyRef} data-dragging={drag ?? undefined}>
         <ActivityBar />
         {sidebarVisible && (

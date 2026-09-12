@@ -101,7 +101,7 @@ export function EntityTree() {
       <div className={styles.toolbar}>
         <div className={styles.search}>
           <Search size={14} />
-          <input type="search" placeholder="Search entities…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input type="search" data-bare placeholder="Search entities…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className={styles.filters}>
           <label><input type="checkbox" checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} /> errors</label>

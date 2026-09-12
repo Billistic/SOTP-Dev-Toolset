@@ -8,6 +8,7 @@
 
 .canvasRow { flex: 1; display: flex; min-height: 0; }
 .canvas { flex: 1; min-width: 0; background: var(--bg-base); }
+.canvas :global(.react-flow__viewport-portal) { z-index: -1; pointer-events: none; }
 
 .detail { width: 300px; flex-shrink: 0; border-left: 1px solid var(--border-subtle); padding: 14px; overflow: auto; background: var(--bg-surface); display: flex; flex-direction: column; gap: 6px; }
 .detailName { font-size: 14px; font-weight: 600; }
@@ -24,3 +25,30 @@
 .toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-sm); font-size: var(--font-size-sm); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
 .toggle[data-active] { color: var(--text-primary); background: var(--bg-active); border-color: var(--border-default); }
 .help { font-size: 10.5px; color: var(--text-muted); }
+
+.band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--band) 9%, transparent) 0%, color-mix(in srgb, var(--band) 3%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--band) 16%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--band) 55%, transparent);
+  pointer-events: none;
+}
+.band[data-empty] { opacity: 0.45; border-style: dashed; border-top-style: solid; }
+.bandLabel {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--band) 80%, var(--text-primary));
+}
+.bandCount { font-family: var(--font-mono); font-weight: 500; letter-spacing: 0; color: var(--text-muted); }
+.fields button svg { opacity: 0.8; }

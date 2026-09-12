@@ -17,7 +17,7 @@ export function DiagnosticsView() {
   return (
     <div className={styles.root}>
       <div className={styles.toolbar}>
-        <div className={styles.search}><Search size={14} /><input type="search" placeholder="Filter by message, entity or target…" value={f.search} onChange={(e) => f.set({ search: e.target.value })} /></div>
+        <div className={styles.search}><Search size={14} /><input type="search" data-bare placeholder="Filter by message, entity or target…" value={f.search} onChange={(e) => f.set({ search: e.target.value })} /></div>
         <select value={f.severity ?? ''} onChange={(e) => f.set({ severity: e.target.value || null })}>
           <option value="">any severity</option><option value="error">error</option><option value="warning">warning</option><option value="info">info</option>
         </select>

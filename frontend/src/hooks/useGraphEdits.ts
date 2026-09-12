@@ -51,5 +51,9 @@ export function useGraphEdits() {
   const placeResearch = (name: string, x: number, y: number) =>
     edit.mutate({ name, changes: [{ op: 'set', path: 'researchWindowLocation.pos', value: [x, y] }], message: `${name} moved to [${x}, ${y}]` })
 
-  return { connect, disconnect, placeResearch, busy: edit.isPending }
+  /** Move a research subject to another tier (the lab-count requirement column). */
+  const setTier = (name: string, tier: number) =>
+    edit.mutate({ name, changes: [{ op: 'set', path: 'Tier', value: tier }], message: `${name} is now tier ${tier}` })
+
+  return { connect, disconnect, placeResearch, setTier, busy: edit.isPending }
 }
