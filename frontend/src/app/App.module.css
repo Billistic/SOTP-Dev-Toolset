@@ -1,0 +1,39 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-base);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.body[data-dragging] { user-select: none; cursor: col-resize; }
+.body[data-dragging='bottom'] { cursor: row-resize; }
+
+.sidebar {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.bottom { flex-shrink: 0; border-top: 1px solid var(--border-subtle); background: var(--bg-surface); min-height: 0; display: flex; flex-direction: column; }
+
+.vHandle { width: 4px; cursor: col-resize; background: transparent; margin-left: -2px; z-index: 2; }
+.vHandle:hover { background: var(--accent-dim); }
+.hHandle { height: 4px; cursor: row-resize; background: transparent; margin-bottom: -2px; z-index: 2; }
+.hHandle:hover { background: var(--accent-dim); }

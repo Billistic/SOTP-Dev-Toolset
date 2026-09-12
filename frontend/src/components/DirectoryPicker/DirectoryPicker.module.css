@@ -1,0 +1,14 @@
+.backdrop { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; z-index: 50; }
+.dialog { width: 620px; max-width: 92vw; height: 480px; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-md); display: flex; flex-direction: column; box-shadow: var(--shadow); }
+
+.head { display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border-subtle); }
+.pathInput { flex: 1; font-family: var(--font-mono); font-size: 12px; }
+
+.list { flex: 1; overflow: auto; padding: 6px 0; }
+.dir { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 14px; text-align: left; }
+.dir:hover { background: var(--bg-hover); }
+
+.foot { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--border-subtle); font-size: var(--font-size-sm); }
+.ok { color: var(--success); display: inline-flex; align-items: center; gap: 5px; }
+.spacer { flex: 1; }
+.hint { padding: 10px 14px; color: var(--text-secondary); }

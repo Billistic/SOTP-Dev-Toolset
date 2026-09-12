@@ -1,0 +1,45 @@
+.node {
+  width: 230px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  font-size: 11.5px;
+  position: relative;
+  cursor: grab;
+  box-shadow: 0 2px 6px color-mix(in srgb, #000 35%, transparent);
+  overflow: visible;
+}
+.node:hover { border-color: var(--border-strong); }
+.node[data-selected] { box-shadow: 0 0 0 2px var(--accent), 0 2px 6px color-mix(in srgb, #000 35%, transparent); }
+.node[data-focus] { box-shadow: 0 0 0 2px var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent); }
+.node[data-missing] { border-style: dashed; opacity: 0.75; }
+
+/* UE blueprint header: solid category band fading to the body */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 4px 8px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(90deg, var(--band) 0%, color-mix(in srgb, var(--band) 55%, var(--bg-elevated)) 100%);
+}
+.node[data-errors] .head { box-shadow: inset 3px 0 0 var(--error); }
+.swatch { width: 3px; height: 13px; border-radius: 1px; flex-shrink: 0; opacity: 0.9; }
+.name { font-family: var(--font-mono); font-weight: 600; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+.sub { display: flex; align-items: center; gap: 8px; padding: 4px 10px 5px 10px; color: var(--text-secondary); font-size: 10.5px; }
+.type { color: var(--text-primary); }
+.display { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: italic; }
+.dirty { width: 7px; height: 7px; border-radius: 50%; background: var(--modified); flex-shrink: 0; }
+
+.ports { border-top: 1px solid var(--border-subtle); padding: 4px 0 5px; display: flex; flex-direction: column; gap: 1px; }
+.port { position: relative; display: flex; justify-content: flex-end; padding: 1px 14px 1px 10px; color: var(--text-primary); }
+.port[data-empty] .portLabel { color: var(--text-muted); }
+.portNew .portLabel { color: var(--text-muted); font-style: italic; }
+.portLabel { font-size: 10.5px; font-family: var(--font-mono); }
+
+/* pins: UE style hollow circle that fills when connected */
+.inHandle { width: 11px; height: 11px; left: -6px; background: var(--bg-elevated); border: 2px solid var(--band); }
+.outHandle { width: 10px; height: 10px; right: -6px; top: 50%; background: var(--accent); border: 2px solid var(--bg-elevated); }
+.port[data-empty] .outHandle { background: var(--bg-elevated); border-color: var(--border-strong); }
+.portNew .outHandle { background: var(--bg-elevated); border-color: var(--success); border-style: dashed; }
+.node:hover .outHandle, .node[data-selected] .outHandle { transform: translateY(-50%) scale(1.25); }

@@ -1,0 +1,21 @@
+.root { padding: 14px 18px 24px; }
+.head { display: flex; align-items: center; gap: 16px; padding-bottom: 10px; flex-wrap: wrap; }
+.peers summary { cursor: pointer; color: var(--accent); font-size: var(--font-size-sm); }
+.peerList { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; max-width: 900px; }
+.peerList button { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-secondary); }
+.peerList button:hover { color: var(--text-primary); border-color: var(--accent); }
+
+.table { width: 100%; max-width: 980px; font-size: 12.5px; }
+.table th { text-align: left; padding: 6px 8px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border-default); }
+.table td { padding: 5px 8px; border-bottom: 1px solid var(--border-subtle); }
+.table tr[data-tone='mild'] td { background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.table tr[data-tone='strong'] td { background: color-mix(in srgb, var(--error) 12%, transparent); }
+.num { text-align: right; font-family: var(--font-mono); }
+td[data-sign='pos'] { color: var(--success); }
+td[data-sign='neg'] { color: var(--error); }
+
+.bar { width: 140px; height: 8px; background: var(--bg-elevated); border-radius: 4px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+
+.note, .hint { color: var(--text-secondary); font-size: var(--font-size-sm); padding: 10px 0; }
+.hint { padding: 16px 18px; }

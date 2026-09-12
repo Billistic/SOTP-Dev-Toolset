@@ -1,0 +1,21 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.bar[data-state='ready'] { background: color-mix(in srgb, var(--success) 14%, var(--bg-surface)); border-bottom-color: color-mix(in srgb, var(--success) 40%, var(--border-subtle)); }
+.bar[data-state='failed'] { background: color-mix(in srgb, var(--error) 12%, var(--bg-surface)); }
+.text { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.link { color: var(--accent); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.progress { flex: 0 0 160px; height: 4px; border-radius: 2px; background: var(--bg-active); overflow: hidden; }
+.progress span { display: block; height: 100%; background: var(--accent); transition: width 200ms linear; }
+.spacer { flex: 1; }
+.close { color: var(--text-secondary); padding: 3px; border-radius: var(--radius-sm); display: grid; place-items: center; }
+.close:hover { color: var(--text-primary); background: var(--bg-hover); }

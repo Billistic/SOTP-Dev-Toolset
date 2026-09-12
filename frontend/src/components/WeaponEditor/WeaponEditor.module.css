@@ -1,0 +1,22 @@
+.root { display: flex; flex-direction: column; min-height: 100%; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--bg-base);
+  z-index: 1;
+  flex-wrap: wrap;
+}
+.toolBtn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--radius-sm); font-size: var(--font-size-sm); color: var(--text-secondary); }
+.toolBtn:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.toolBtn[data-active] { color: var(--text-primary); background: var(--bg-active); }
+.spacer { flex: 1; }
+.addLabel { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-size-sm); color: var(--text-secondary); margin-right: 2px; }
+
+.cards { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 24px; }
+.hint { padding: 16px; color: var(--text-secondary); font-size: var(--font-size-sm); }

@@ -1,0 +1,27 @@
+.card { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); overflow: hidden; }
+.card:hover { border-color: var(--border-default); }
+
+.head { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 0; background: var(--bg-elevated); }
+.card[data-open] .head { border-bottom: 1px solid var(--border-subtle); }
+
+.toggle { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 12px; text-align: left; color: var(--text-primary); min-width: 0; }
+.toggle:hover { background: var(--bg-hover); }
+.chevron { color: var(--text-muted); flex-shrink: 0; transition: transform var(--transition); }
+.card[data-open] .chevron { transform: rotate(90deg); }
+.index { font-family: var(--font-mono); color: var(--text-muted); font-size: var(--font-size-sm); }
+.type { font-weight: 600; color: var(--accent); }
+.chip { font-size: var(--font-size-sm); padding: 1px 7px; border-radius: 10px; background: var(--bg-surface); color: var(--text-secondary); font-family: var(--font-mono); }
+.stat { font-size: var(--font-size-sm); color: var(--text-secondary); white-space: nowrap; }
+.stat strong { color: var(--text-primary); font-family: var(--font-mono); font-weight: 500; }
+.fx { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+.actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.actions button { color: var(--text-secondary); padding: 4px; border-radius: var(--radius-sm); display: grid; place-items: center; }
+.actions button:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.actions button:disabled { opacity: 0.35; }
+.actions .danger:hover:not(:disabled) { color: var(--error); }
+
+.body { padding: 10px 14px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 10px 24px; align-items: start; }
+.group { min-width: 0; }
+.groupTitle { font-size: var(--font-size-sm); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; }
+.sounds { display: flex; flex-direction: column; gap: 8px; }

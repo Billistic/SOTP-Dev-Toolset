@@ -1,0 +1,30 @@
+.bar {
+  height: var(--status-bar-height);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: stretch;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: inherit;
+  white-space: nowrap;
+}
+button.item:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.err { color: var(--error); }
+.warn { color: var(--warning); margin-left: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--modified); display: inline-block; }
+.spacer { flex: 1; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.update { color: var(--accent); }
+button.item[data-update] { color: var(--accent); }

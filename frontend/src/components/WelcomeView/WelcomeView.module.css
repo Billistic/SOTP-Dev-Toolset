@@ -1,0 +1,12 @@
+.root { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 18px; text-align: center; overflow: auto; }
+.title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.v { color: var(--accent); font-weight: 400; }
+.tag { max-width: 560px; color: var(--text-secondary); }
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 240px)); gap: 12px; margin-top: 8px; }
+.step { padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.step p { color: var(--text-secondary); font-size: var(--font-size-sm); flex: 1; }
+.step code { font-family: var(--font-mono); color: var(--accent); }
+
+.keys { color: var(--text-muted); font-size: var(--font-size-sm); margin-top: 12px; }
+kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--border-default); border-radius: 3px; background: var(--bg-elevated); }

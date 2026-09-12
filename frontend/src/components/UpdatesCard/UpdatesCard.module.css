@@ -1,0 +1,13 @@
+.card { padding: 14px 18px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+.title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: var(--font-size); }
+.facts dt { color: var(--text-secondary); }
+.facts dd { margin: 0; font-family: var(--font-mono); font-size: 12px; }
+.note { color: var(--text-muted); font-family: var(--font-ui); font-size: var(--font-size-sm); }
+.err { color: var(--error); font-family: var(--font-ui); font-size: var(--font-size-sm); }
+.link { color: var(--accent); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.notes { margin-top: 12px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-ui); font-size: var(--font-size-sm); white-space: pre-wrap; color: var(--text-secondary); max-height: 200px; overflow: auto; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

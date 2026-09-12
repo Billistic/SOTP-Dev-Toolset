@@ -1,0 +1,24 @@
+.root { padding: 18px 22px 32px; overflow: auto; height: 100%; display: flex; flex-direction: column; gap: 16px; max-width: 1100px; }
+
+.card { padding: 14px 18px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+.title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.sub { font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 6px; }
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.inputRow { display: flex; gap: 6px; }
+.inputRow input { flex: 1; font-family: var(--font-mono); font-size: 12px; }
+.hint { font-size: var(--font-size-sm); color: var(--text-muted); }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.stats { display: flex; gap: 28px; margin-bottom: 14px; }
+.stats div { display: flex; flex-direction: column; }
+.stats strong { font-size: 22px; font-weight: 600; }
+.stats span { font-size: var(--font-size-sm); color: var(--text-secondary); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.rows li { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12.5px; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }

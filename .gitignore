@@ -1,0 +1,23 @@
+# python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/.env
+.pytest_cache/
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# editor
+.vscode/
+.idea/
+
+# desktop packaging output
+desktop/build/
+desktop/dist/
+# code-signing material
+desktop/certs/

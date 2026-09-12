@@ -1,0 +1,26 @@
+.node {
+  width: 190px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 14px;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  position: relative;
+}
+.node:hover { border-color: var(--accent); color: var(--text-primary); }
+.node[data-selected] { box-shadow: 0 0 0 2px var(--accent); }
+.node[data-missing] { border-color: var(--error); color: var(--error); }
+.node[data-asset] { border-style: dotted; }
+
+.icon { flex-shrink: 0; opacity: 0.8; }
+.name { flex: 1; min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { font-size: 9.5px; color: var(--text-muted); white-space: nowrap; }
+.handle { width: 7px; height: 7px; background: var(--border-strong); border: none; }
+.count { font-size: 9.5px; font-family: var(--font-mono); padding: 0 5px; border-radius: 8px; background: var(--bg-active); color: var(--text-secondary); }
+.node[data-hub] { border-style: solid; border-color: var(--border-strong); }
+.node[data-hub] .count { background: var(--accent-dim); color: var(--accent); }

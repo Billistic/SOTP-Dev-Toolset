@@ -1,0 +1,9 @@
+.field { display: flex; flex-direction: column; gap: 4px; }
+.label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.id { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); background: var(--bg-base); padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); }
+.value { width: 100%; resize: vertical; font-family: var(--font-ui); line-height: 1.5; }
+.original { font-size: var(--font-size-sm); color: var(--text-secondary); white-space: pre-wrap; }
+.hint { font-size: var(--font-size-sm); color: var(--warning); }
+.meta { font-size: var(--font-size-sm); color: var(--text-muted); font-family: var(--font-mono); }
+.note { font-size: var(--font-size-sm); color: var(--modified); }
+.spacer { flex: 1; }

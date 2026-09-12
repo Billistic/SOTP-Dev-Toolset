@@ -1,0 +1,137 @@
+/*
+  Design tokens. Two palettes in the Unreal Editor idiom: neutral greys, one
+  blue accent for selection/focus, amber for "dirty", flat panels, sharp corners.
+  Dark is the default (`:root`); `html[data-theme="light"]` swaps the palette.
+  Components only ever reference these variables.
+*/
+:root {
+  color-scheme: dark;
+
+  /* surfaces (UE: viewport < panel < node body < menu) */
+  --bg-base: #0f0f0f;
+  --bg-surface: #161616;
+  --bg-elevated: #1e1e1e;
+  --bg-overlay: #262626;
+  --bg-hover: #2c2c2c;
+  --bg-active: #363636;
+  --bg-selection: #143a5f;
+  --bg-input: #0a0a0a;
+
+  --border-subtle: #242424;
+  --border-default: #333333;
+  --border-strong: #4d4d4d;
+
+  --text-primary: #d9d9d9;
+  --text-secondary: #9a9a9a;
+  --text-muted: #6a6a6a;
+  --text-inverse: #0f0f0f;
+  --text-on-accent: #ffffff;
+
+  --accent: #1f8fff;
+  --accent-hover: #4ea7ff;
+  --accent-dim: #12325a;
+
+  --success: #4cc36a;
+  --warning: #ffb000;
+  --error: #ef4b3f;
+  --info: #6fa8ff;
+  --modified: #e0a526;
+
+  --unsc: #4da3ff;
+  --covenant: #b478ff;
+  --neutral: #9e9e9e;
+
+  /* syntax colours in the tree / raw editors */
+  --syntax-num: #8ac4ff;
+  --syntax-str: #b5d99c;
+  --syntax-hex: #e0a0ff;
+
+  /* node-graph category bands (UE: event red, function blue, pure green ...) */
+  --node-ship: #2f6db3;
+  --node-research: #c47f1a;
+  --node-ability: #7b4fc1;
+  --node-buff: #3b9c5a;
+  --node-squad: #1f9a9a;
+  --node-module: #6b6b6b;
+  --node-planet: #8a5a3c;
+  --node-player: #b04040;
+  --node-other: #555555;
+  --grid-minor: #1a1a1a;
+  --grid-major: #262626;
+
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+  /* layout */
+  --activity-bar-width: 44px;
+  --status-bar-height: 22px;
+  --tab-bar-height: 32px;
+  --toolbar-height: 36px;
+
+  /* type */
+  --font-ui: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --font-size: 12.5px;
+  --font-size-sm: 11px;
+  --line-height: 1.45;
+
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --transition: 100ms ease;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-base: #e6e6e6;
+  --bg-surface: #f2f2f2;
+  --bg-elevated: #fbfbfb;
+  --bg-overlay: #ffffff;
+  --bg-hover: #dedede;
+  --bg-active: #cfcfcf;
+  --bg-selection: #cfe3fb;
+  --bg-input: #ffffff;
+
+  --border-subtle: #d9d9d9;
+  --border-default: #c4c4c4;
+  --border-strong: #9f9f9f;
+
+  --text-primary: #1e1e1e;
+  --text-secondary: #5a5a5a;
+  --text-muted: #8c8c8c;
+  --text-inverse: #ffffff;
+  --text-on-accent: #ffffff;
+
+  --accent: #0a6fd6;
+  --accent-hover: #2286ec;
+  --accent-dim: #d6e7fa;
+
+  --success: #2a9d4a;
+  --warning: #b07500;
+  --error: #d3352b;
+  --info: #3b6fd0;
+  --modified: #b8860b;
+
+  --unsc: #1d6fd0;
+  --covenant: #8a4fd8;
+  --neutral: #6f6f6f;
+
+  --syntax-num: #0b5fa5;
+  --syntax-str: #2f7d32;
+  --syntax-hex: #7a2fb3;
+
+  --node-ship: #3a7fd0;
+  --node-research: #d08a1e;
+  --node-ability: #8a5fd6;
+  --node-buff: #45a866;
+  --node-squad: #2aa7a7;
+  --node-module: #8a8a8a;
+  --node-planet: #a06a45;
+  --node-player: #c44c4c;
+  --node-other: #7a7a7a;
+  --grid-minor: #dcdcdc;
+  --grid-major: #cbcbcb;
+
+  --overlay: rgba(20, 20, 20, 0.35);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}

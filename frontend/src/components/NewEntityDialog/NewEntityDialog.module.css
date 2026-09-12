@@ -1,0 +1,8 @@
+.grid { display: grid; grid-template-columns: 90px 1fr; gap: 12px 10px; align-items: start; }
+.label { font-size: var(--font-size-sm); color: var(--text-secondary); padding-top: 6px; }
+.name { width: 100%; font-family: var(--font-mono); font-size: 12px; }
+.check { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--font-size); cursor: pointer; }
+.ids { flex-basis: 100%; font-family: var(--font-mono); font-size: var(--font-size-sm); color: var(--text-muted); padding-left: 20px; }
+.hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 4px; }
+.err { font-size: var(--font-size-sm); color: var(--error); margin-top: 4px; }
+.spacer { flex: 1; }
