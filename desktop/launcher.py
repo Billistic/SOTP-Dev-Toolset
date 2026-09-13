@@ -19,7 +19,7 @@ APP_NAME = "SOTP Dev Env"
 FROZEN = getattr(sys, "frozen", False)
 BUNDLE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))   # PyInstaller unpack dir or this folder
 HERE = BUNDLE if FROZEN else Path(__file__).resolve().parent                # splash.html / icon.ico live here
-SPLASH_SIZE = (380, 300)
+SPLASH_SIZE = (394, 337)   # pywebview reserves a frame allowance even when frameless; this yields a ~380x300 page
 MIN_SIZE = (1000, 640)
 
 

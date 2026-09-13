@@ -102,10 +102,16 @@ def test_relationship_graph_and_layout(client):
     assert all(e["source"] in {n["id"] for n in core} for e in g["edges"])
     artemis = next(n for n in core if n["id"] == "Capital_UNSC_Artemis_Cole")
     assert any(p["path"] == "ability:0" and p["target"] is None for p in artemis["ports"]), "empty ability slots are free ports"
-    # focus mode follows references downstream and can pull assets in
+    # focus mode follows references downstream; asset wires fan out for the asset_focus node only
     f = client.get("/api/graph/relationships?focus=Capital_UNSC_Artemis_Cole&depth=1&asset_kinds=mesh").json()
     ids = {n["id"] for n in f["nodes"]}
-    assert "Capital_UNSC_Artemis_Cole" in ids and any(n.get("asset") for n in f["nodes"])
+    assert "Capital_UNSC_Artemis_Cole" in ids and not any(n.get("asset") for n in f["nodes"])
+    f = client.get("/api/graph/relationships?focus=Capital_UNSC_Artemis_Cole&depth=1&asset_kinds=mesh,brush&asset_focus=Capital_UNSC_Artemis_Cole").json()
+    assets = [n for n in f["nodes"] if n.get("asset")]
+    assert assets and all(n["ports"] == [] for n in assets)
+    merged = [e for e in f["edges"] if e["kind"] != "entity"]
+    assert merged and all(e["source"] == "Capital_UNSC_Artemis_Cole" and e["count"] == len(e["paths"]) for e in merged)
+    assert next(n for n in f["nodes"] if n["id"] == "Capital_UNSC_Artemis_Cole")["assetCounts"].get("mesh", 0) >= 1
     # layouts round-trip and merge
     assert client.put("/api/graph/layout/test", json={"positions": {"A": {"x": 1, "y": 2}}}).status_code == 200
     client.put("/api/graph/layout/test", json={"positions": {"B": {"x": 3, "y": 4}}})

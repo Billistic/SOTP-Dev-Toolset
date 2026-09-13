@@ -274,9 +274,14 @@ export interface RelNode {
   proxy: boolean            // outside the current filter / focus; shown as a reference stub
   asset?: boolean           // non-entity target (mesh, particle, ...)
   kind?: string
-  ports: RelPort[]
+  ports?: RelPort[]         // absent on asset nodes
+  assetCounts?: Record<string, number>   // mesh / particle / sound / brush / texture references this entity holds
 }
-export interface RelEdge { source: string; target: string; path: string; key: string; kind: string; resolved: boolean }
+export interface RelEdge {
+  source: string; target: string; path: string; key: string; kind: string; resolved: boolean
+  paths?: string[]          // asset edges are merged per (entity, kind, asset); every field behind the line
+  count?: number
+}
 export interface RelGraph { focus: string | null; nodes: RelNode[]; edges: RelEdge[]; truncated: boolean }
 export interface GraphLayout { viewKey: string; positions: Record<string, { x: number; y: number }>; updatedAt: string | null }
 

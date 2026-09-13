@@ -25,7 +25,7 @@ export const insightsApi = {
   symmetry: (category = 'ship') => api.get<Record<string, unknown>[]>(`/balance/symmetry${qs({ category })}`),
   researchGraph: (player: string) => api.get<Graph>(`/graph/research/${encodeURIComponent(player)}`),
   neighbourhood: (name: string, depth = 1) => api.get<Graph>(`/graph/neighbourhood/${encodeURIComponent(name)}${qs({ depth })}`),
-  relationships: (p: { categories?: string; focus?: string; depth?: number; direction?: 'out' | 'in' | 'both'; incoming?: boolean; include?: string; factions?: string; asset_kinds?: string; max_nodes?: number }) =>
+  relationships: (p: { categories?: string; focus?: string; depth?: number; direction?: 'out' | 'in' | 'both'; incoming?: boolean; include?: string; factions?: string; asset_kinds?: string; asset_focus?: string; max_nodes?: number }) =>
     api.get<RelGraph>(`/graph/relationships${qs(p)}`),
   getLayout: (viewKey: string) => api.get<GraphLayout>(`/graph/layout/${encodeURIComponent(viewKey)}`),
   saveLayout: (viewKey: string, positions: Record<string, { x: number; y: number }>, merge = true) =>

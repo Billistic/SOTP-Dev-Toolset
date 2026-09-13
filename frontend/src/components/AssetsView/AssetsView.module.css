@@ -22,3 +22,10 @@
 .path { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .meta { color: var(--text-secondary); font-size: 11.5px; }
 .hint { padding: 16px; color: var(--text-secondary); }
+
+.seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { padding: 3px 10px; font-size: var(--font-size-sm); color: var(--text-secondary); border-right: 1px solid var(--border-subtle); }
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--text-primary); }
+.seg button[data-active] { background: var(--bg-active); color: var(--text-primary); }
+.dirSel { font-size: var(--font-size-sm); padding: 3px 6px; max-width: 260px; }

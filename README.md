@@ -180,6 +180,38 @@ fields that feed the balance metrics), **Tree** (every node), **Weapons** (grid)
 Endpoints: `GET /api/graph/relationships?categories=|focus=&depth=&direction=&incoming=&include=&asset_kinds=`,
 `GET/PUT/DELETE /api/graph/layout/{view_key}`.
 
+### Undo, redo and dragging into empty space
+
+Graph gestures are recorded on an undo stack (`store/useUndoStore.ts`) with their inverse: connecting or
+clearing a port, adding or removing a prerequisite, moving a research subject to another tier or slot, and
+dragging nodes around a saved layout. Ctrl+Z / Ctrl+Y (or the toolbar buttons) walk it; text fields keep the
+browser's own undo. Dropping a connection on empty canvas opens a menu to create a new entity of the type
+that port expects (`ability:N` -> Ability, `buffType` -> Buff, `Subject` -> ResearchSubject...) already wired
+up, or to pick an existing one.
+
+### Assets on a node
+
+Following Unreal's split: while editing, asset references are *properties* of the node, not wires. Every
+entity node has an Assets section with one row per kind (`meshes 2 · particles 12 · sounds 83 ...`); a row
+expands into the fields themselves - where in the file each sits (`weapon 3 › WeaponEffects · muzzleEffectName`),
+the asset's name, red when it does not resolve - with a picker to change it (recorded on the undo stack).
+Toggling a kind in the toolbar is the reference-viewer mode, and it works one node at a time: click an
+entity and its assets of that kind fan out from the kind's row as a single column of chips beside it
+(`fanLayout` in `utils/graphLayout.ts`), grouped in the same top-to-bottom order as the rows so the curves
+never cross, merged to one chip per asset with a xN badge when several fields share it, missing ones first
+and in red. Kinds with more than twelve fold behind a `+N more` chip; click it to unfold. Chips drag like any node
+and a moved chip is remembered with the layout. Whatever sits right of the node slides over to make the
+lane and slides back when the fan closes. The fan sticks to the last
+entity you clicked until you pick another (or the focused entity, in focus mode), and it is built from the
+entity's own reference list rather than the graph query, so clicking never refetches or re-lays out the
+pathway. A whole pathway's assets are never drawn - the row counts on every node tell you what is there.
+Big graphs render only what is on screen, hovering re-styles just the edges that change, and node objects are
+reused between renders, so the pathway views stay responsive.
+
+The side panel for a selected node is deliberately thin - name, type, Focus / Open / delete, and a folded
+Links row with the counts (unfold it to unlink or jump) - because the node and its wires already show the
+links and Open is where the detail lives. A selected chip lists the fields on its entity that hold it.
+
 ### Weapons
 
 The **Weapons** tab is a full editor, not just the comparison grid: one collapsible card per `Weapon` block

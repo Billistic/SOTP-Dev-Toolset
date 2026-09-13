@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Background, BackgroundVariant, Controls, MarkerType, ReactFlow, ViewportPortal, applyNodeChanges,
-  type Connection, type Edge, type Node, type NodeChange, type NodeMouseHandler, type OnNodeDrag,
+  type Connection, type Edge, type FinalConnectionState, type Node, type NodeChange, type NodeMouseHandler, type OnNodeDrag,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Columns3, Gamepad2, Magnet } from 'lucide-react'
+import { Columns3, Gamepad2, Link2, Magnet, Plus, Redo2, Undo2 } from 'lucide-react'
 import { entitiesApi } from '@/api/entities'
 import { insightsApi } from '@/api/insights'
 import { useResolvedTheme } from '@/hooks/useTheme'
 import { useGraphEdits } from '@/hooks/useGraphEdits'
+import { useUndoStore } from '@/store/useUndoStore'
+import { ContextMenu } from '@/components/ContextMenu/ContextMenu'
+import { NewEntityDialog } from '@/components/NewEntityDialog/NewEntityDialog'
+import { AssetPicker } from '@/components/AssetPicker/AssetPicker'
 import { ResearchNode, type ResearchNodeData } from '@/components/ResearchNode/ResearchNode'
 import { useUiStore } from '@/store/useUiStore'
 import { toast } from '@/store/useToastStore'
@@ -42,6 +46,9 @@ export function ResearchGraphView() {
   const theme = useResolvedTheme()
   const openEntity = useUiStore((s) => s.openEntity)
   const { connect, disconnect, placeResearch, setTier } = useGraphEdits()
+  const undoStore = useUndoStore()
+  const [portDrop, setPortDrop] = useState<{ x: number; y: number; from: string } | null>(null)
+  const [wire, setWire] = useState<{ from: string; mode: 'new' | 'pick' } | null>(null)
 
   const { data: players = [] } = useQuery({ queryKey: ['entities', 'players'], queryFn: () => entitiesApi.list({ entity_type: 'Player' }), retry: false })
   useEffect(() => { if (!player && players.length) setPlayer(players[0].name) }, [players, player])
@@ -73,7 +80,7 @@ export function ResearchGraphView() {
         const color = broken ? 'var(--error)' : tierColor(byId.get(e.source)?.tier)   // link wears its source tier's colour
         return {
           id: `${e.source}->${e.target}-${i}`, source: e.source, target: e.target!, type: 'smoothstep',
-          pathOptions: { borderRadius: 14 }, data: { source: e.source, target: e.target!, path: e.path },
+          pathOptions: { borderRadius: 14 }, data: { source: e.source, target: e.target!, path: e.path, level: e.level ?? null },
           animated: !!e.dangling, label: e.level && e.level > 1 ? `L${e.level}` : undefined,
           style: { stroke: color, strokeWidth: 1.6, opacity: broken ? 1 : 0.75 },
           markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
@@ -117,7 +124,7 @@ export function ResearchGraphView() {
     if (!node) return
     if (layout === 'tier') {   // horizontal drop = new tier; vertical order is cosmetic
       const tier = Math.max(0, Math.min(MAX_TIER, Math.round(n.position.x / TIER_COL)))
-      if (tier !== (node.tier ?? 0)) setTier(n.id, tier)
+      if (tier !== (node.tier ?? 0)) setTier(n.id, tier, node.tier ?? 0)
       else setNodes(laidOut)
       return
     }
@@ -127,11 +134,20 @@ export function ResearchGraphView() {
     if (x === node.x && y === node.y) { setNodes(laidOut); return }
     const clash = laidOut.find((o) => o.id !== n.id && o.data.node.block === block && o.data.node.x === x && o.data.node.y === y)
     if (clash) toast.error(`Slot [${x}, ${y}] is already used by ${clash.id}; the game will overlap them`)
-    placeResearch(n.id, x, y)
+    placeResearch(n.id, x, y, { x: node.x ?? 0, y: node.y ?? 0 })
   }
-  const onConnect = (c: Connection) => { if (c.source && c.target && c.source !== c.target) connect(c.target, 'prerequisite', c.source) }
+  // an edge runs prerequisite -> dependant, so connecting means "target now requires source"
+  const onConnect = (c: Connection) => { if (c.source && c.target && c.source !== c.target) connect(c.target, 'prerequisite', c.source, null) }
+  const onConnectEnd = (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+    if (state.isValid || !state.fromNode || state.fromHandle?.type !== 'source') return
+    const p = 'changedTouches' in event ? event.changedTouches[0] : event
+    setPortDrop({ x: p.clientX, y: p.clientY, from: state.fromNode.id })
+  }
   const onEdgesDelete = (deleted: Edge[]) => {
-    for (const e of deleted) { const d = e.data as { source: string; target: string; path?: string } | undefined; if (d?.path) disconnect(d.target, d.path) }
+    for (const e of deleted) {
+      const d = e.data as { source: string; target: string; path?: string; level?: number | null } | undefined
+      if (d?.path) disconnect(d.target, d.path, { target: d.source, level: d.level ?? 1 })
+    }
   }
   const onNodeClick: NodeMouseHandler = (_, n) => setSelected(n.id)
   const sel = selected ? byId.get(selected) : undefined
@@ -155,12 +171,16 @@ export function ResearchGraphView() {
           <button type="button" data-active={layout === 'game' || undefined} onClick={() => setLayout('game')} title="Exactly where the game's research screen puts it; drag to move the slot"><Gamepad2 size={13} /> game layout</button>
         </div>
         {layout === 'game' && <button type="button" className={styles.toggle} data-active={snap || undefined} onClick={() => setSnap((v) => !v)} title="Snap dragged nodes to the game's slot grid"><Magnet size={13} /> snap</button>}
+        <button type="button" className={styles.toggle} disabled={!undoStore.past.length || undoStore.busy} onClick={() => undoStore.undo()}
+                title={undoStore.past.length ? `Undo: ${undoStore.past[undoStore.past.length - 1].label} (Ctrl+Z)` : 'Nothing to undo'}><Undo2 size={13} /></button>
+        <button type="button" className={styles.toggle} disabled={!undoStore.future.length || undoStore.busy} onClick={() => undoStore.redo()}
+                title={undoStore.future.length ? `Redo: ${undoStore.future[0].label} (Ctrl+Y)` : 'Nothing to redo'}><Redo2 size={13} /></button>
         <span className={styles.help}>{layout === 'tier' ? 'drag sideways to change tier' : 'drag a node to move its slot'} · drag port to port to add a prerequisite · select a line and press Delete to remove it</span>
       </div>
       <div className={styles.canvasRow}>
         <div className={styles.canvas}>
           <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={onNodeClick} fitView minZoom={0.2} maxZoom={1.6}
-                     onNodesChange={onNodesChange} onNodeDragStop={onNodeDragStop} onConnect={onConnect} onEdgesDelete={onEdgesDelete}
+                     onNodesChange={onNodesChange} onNodeDragStop={onNodeDragStop} onConnect={onConnect} onConnectEnd={onConnectEnd} onEdgesDelete={onEdgesDelete}
                      onNodeDoubleClick={(_, n) => openEntity(n.id)} snapToGrid={layout === 'game' && snap} snapGrid={[COL, ROW]} connectionRadius={30}
                      deleteKeyCode={['Delete', 'Backspace']} proOptions={{ hideAttribution: true }} colorMode={theme}>
             <Background id="minor" variant={BackgroundVariant.Lines} gap={16} color="var(--grid-minor)" />
@@ -198,6 +218,21 @@ export function ResearchGraphView() {
             </ul>
             <button className="btn sm primary" onClick={() => openEntity(sel.id)}>Open entity</button>
           </aside>
+        )}
+        {portDrop && (
+          <ContextMenu x={portDrop.x} y={portDrop.y} title={`${portDrop.from} → …`} onClose={() => setPortDrop(null)}
+                       items={[
+                         { label: 'New research subject requiring this…', icon: <Plus size={13} />, onClick: () => setWire({ from: portDrop.from, mode: 'new' }) },
+                         { label: 'Make an existing subject require this…', icon: <Link2 size={13} />, onClick: () => setWire({ from: portDrop.from, mode: 'pick' }) },
+                       ]} />
+        )}
+        {wire?.mode === 'new' && (
+          <NewEntityDialog initialType="ResearchSubject" onClose={() => setWire(null)}
+                           onCreated={(name) => { connect(name, 'prerequisite', wire.from, null); setSelected(name) }} />
+        )}
+        {wire?.mode === 'pick' && (
+          <AssetPicker kind="entity" value="" fieldKey="Subject" onClose={() => setWire(null)}
+                       onPick={(v) => { if (v !== wire.from) connect(v, 'prerequisite', wire.from, null) }} />
         )}
       </div>
     </div>

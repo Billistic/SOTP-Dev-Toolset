@@ -4,19 +4,36 @@
   align-items: stretch;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
-  overflow-x: auto;
-  overflow-y: hidden;
   flex-shrink: 0;
+  min-width: 0;
 }
-.bar::-webkit-scrollbar { height: 3px; }
+.strip { flex: 1; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+
+/* overflow chevrons: how many tabs are hidden past that edge; click to bring them in */
+.edge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-subtle);
+}
+.edge:last-child { border-right: none; border-left: 1px solid var(--border-subtle); box-shadow: -8px 0 12px -8px color-mix(in srgb, #000 40%, transparent); }
+.edge:first-child { box-shadow: 8px 0 12px -8px color-mix(in srgb, #000 40%, transparent); }
+.edge:hover { color: var(--text-primary); background: var(--bg-hover); }
+.edgeCount { font-size: 10.5px; font-family: var(--font-mono); padding: 0 5px; border-radius: 8px; background: var(--bg-active); color: var(--text-primary); }
 
 .tab {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
-  min-width: 120px;
-  max-width: 240px;
+  min-width: 110px;
+  max-width: 220px;
+  flex-shrink: 0;
   margin-top: 4px;
   margin-right: 1px;
   border-radius: 4px 4px 0 0;

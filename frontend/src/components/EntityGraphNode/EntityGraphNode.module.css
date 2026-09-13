@@ -43,3 +43,29 @@
 .port[data-empty] .outHandle { background: var(--bg-elevated); border-color: var(--border-strong); }
 .portNew .outHandle { background: var(--bg-elevated); border-color: var(--success); border-style: dashed; }
 .node:hover .outHandle, .node[data-selected] .outHandle { transform: translateY(-50%) scale(1.25); }
+
+/* Assets section: one row per kind; the row is the port asset wires leave from when that kind is shown */
+.assets { border-top: 1px dashed var(--border-subtle); padding: 3px 0 4px; display: flex; flex-direction: column; }
+.kind { position: relative; }
+.kindHead { width: 100%; display: flex; align-items: center; gap: 5px; padding: 2px 14px 2px 8px; color: var(--text-muted); font-size: 10.5px; cursor: pointer; text-align: left; }
+.kindHead:hover { color: var(--text-primary); background: var(--bg-hover); }
+.kind[data-wired] .kindLabel { color: var(--text-secondary); }
+.kind[data-open] .kindLabel { color: var(--text-primary); }
+.chev { flex-shrink: 0; transition: transform var(--transition); }
+.chev[data-open] { transform: rotate(90deg); }
+.kindLabel { flex: 1; }
+.kindCount { font-family: var(--font-mono); font-size: 10px; padding: 0 5px; border-radius: 7px; background: var(--bg-base); }
+.kindBroken { font-family: var(--font-mono); font-size: 9.5px; color: var(--error); }
+.assetHandle { width: 8px; height: 8px; right: -5px; top: 11px; background: var(--bg-elevated); border: 2px solid var(--text-muted); }
+.kind[data-wired]:hover .assetHandle { border-color: var(--text-primary); }
+
+.fields { list-style: none; margin: 0; padding: 1px 6px 4px 12px; display: flex; flex-direction: column; gap: 1px; max-height: 190px; overflow-y: auto; cursor: default; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto; align-items: center; gap: 5px; padding: 1px 2px; border-radius: 3px; font-size: 10px; }
+.field:hover { background: var(--bg-hover); }
+.fieldKey { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fieldValue { font-family: var(--font-mono); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.field[data-missing] .fieldValue { color: var(--error); }
+.fieldValue i { color: var(--text-muted); }
+.pick { color: var(--text-muted); display: grid; place-items: center; padding: 1px; border-radius: 3px; }
+.pick:hover { color: var(--accent); background: var(--bg-active); }
+.fieldEmpty { color: var(--text-muted); font-size: 10px; padding: 2px; }

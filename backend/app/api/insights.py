@@ -80,12 +80,12 @@ def research_graph(player: str, db: Session = Depends(get_db), project: Project 
 @router.get("/graph/relationships")
 def relationships(categories: str | None = None, focus: str | None = None, depth: int = Query(2, ge=1, le=5),
                   direction: str = Query("out", pattern="^(out|in|both)$"), incoming: bool = False, include: str | None = None,
-                  factions: str | None = None, asset_kinds: str | None = None, max_nodes: int = Query(600, le=2000),
-                  db: Session = Depends(get_db), project: Project = Depends(get_project)):
+                  factions: str | None = None, asset_kinds: str | None = None, asset_focus: str | None = None,
+                  max_nodes: int = Query(600, le=2000), db: Session = Depends(get_db), project: Project = Depends(get_project)):
     split = lambda s: {x.strip() for x in s.split(",") if x.strip()} if s else None  # noqa: E731
     return GraphService(db).relationships(project, categories=split(categories), focus=focus or None, depth=depth,
-                                          direction=direction, incoming=incoming, include=split(include),
-                                          factions=split(factions), asset_kinds=split(asset_kinds), max_nodes=max_nodes)
+                                          direction=direction, incoming=incoming, include=split(include), factions=split(factions),
+                                          asset_kinds=split(asset_kinds), asset_focus=asset_focus or None, max_nodes=max_nodes)
 
 
 class LayoutIn(BaseModel):

@@ -48,8 +48,32 @@ function categoryLayers(items: LayoutItem[], links: LayoutEdge[]): Map<string, n
 }
 
 export function layoutGraph(items: LayoutItem[], edges: LayoutEdge[], mode: LayoutMode = 'pipeline'): Positions {
-  if (!items.length) return {}
-  return mode === 'compact' ? compact(items, edges) : pipeline(items, edges)
+  const entities = items.filter((i) => !i.asset)   // assets are fanned out from one node at a time, see fanLayout
+  if (!entities.length) return {}
+  return mode === 'compact' ? compact(entities, edges) : pipeline(entities, edges)
+}
+
+export interface FanChip { id: string; kind: string; width: number; height: number }
+export const FAN_GAP = 90        // lane between the anchor's right edge and the chips: room for the curves to spread
+const FAN_ROW_GAP = 5
+const FAN_GROUP_GAP = 14         // extra space where one kind ends and the next begins
+const FAN_TRAIL = 60             // clearance between the chips and whatever sits right of them
+
+/**
+ * One node's assets as a fan: a single column of chips right of the anchor, in the order the chips are given
+ * (grouped by kind, matching the node's Assets rows top to bottom, so no two curves cross), vertically centred
+ * on ``hubY`` - the anchor-relative y of the rows the wires leave from.  Returns the lane width the caller must
+ * open up to the right of the anchor.
+ */
+export function fanLayout(anchor: { x: number; y: number; width: number; hubY: number }, chips: FanChip[]): { positions: Positions; laneWidth: number } {
+  if (!chips.length) return { positions: {}, laneWidth: 0 }
+  const gapBefore = (i: number) => (i === 0 ? 0 : FAN_ROW_GAP + (chips[i - 1].kind !== chips[i].kind ? FAN_GROUP_GAP : 0))
+  const height = chips.reduce((h, c, i) => h + gapBefore(i) + c.height, 0)
+  const x = anchor.x + anchor.width + FAN_GAP
+  let y = anchor.y + anchor.hubY - height / 2
+  const positions: Positions = {}
+  chips.forEach((c, i) => { y += gapBefore(i); positions[c.id] = { x, y }; y += c.height })
+  return { positions, laneWidth: FAN_GAP + Math.max(...chips.map((c) => c.width)) + FAN_TRAIL }
 }
 
 // ── pipeline: semantic columns + intra-column chains + barycenter ordering ──

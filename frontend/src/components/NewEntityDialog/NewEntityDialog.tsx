@@ -12,6 +12,7 @@ interface Props {
   initialType?: string
   initialTemplate?: string
   onClose: () => void
+  onCreated?: (name: string) => void   // e.g. the graph wiring the new entity up; when given the entity tab is not opened
 }
 
 const NAME_RE = /^[A-Za-z0-9_\-.]+$/
@@ -31,7 +32,7 @@ function copyName(template: string) {
 }
 
 /** Create an entity by copying an existing one of the same type. */
-export function NewEntityDialog({ initialType, initialTemplate, onClose }: Props) {
+export function NewEntityDialog({ initialType, initialTemplate, onClose, onCreated }: Props) {
   const qc = useQueryClient()
   const openEntity = useUiStore((s) => s.openEntity)
   const openString = useStringEditorStore((s) => s.open)
@@ -59,7 +60,8 @@ export function NewEntityDialog({ initialType, initialTemplate, onClose }: Props
       qc.invalidateQueries({ queryKey: ['diagnostics'] })
       qc.invalidateQueries({ queryKey: ['strings'] })
       toast.success(`Created ${d.name} (not on disk until you Write it)`)
-      openEntity(d.name)
+      if (onCreated) onCreated(d.name)
+      else openEntity(d.name)
       onClose()
       const first = d.createdStrings?.[0]
       if (first) openString(first.stringId, true)

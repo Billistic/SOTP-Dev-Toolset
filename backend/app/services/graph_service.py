@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..dao import EntityDAO
@@ -92,11 +92,14 @@ class GraphService:
     # ── global relationship map ─────────────────────────────────────────
     def relationships(self, project: Project, *, categories: set[str] | None = None, focus: str | None = None,
                       depth: int = 2, direction: str = "out", incoming: bool = False, include: set[str] | None = None,
-                      factions: set[str] | None = None, asset_kinds: set[str] | None = None, max_nodes: int = 600) -> dict[str, Any]:
+                      factions: set[str] | None = None, asset_kinds: set[str] | None = None, asset_focus: str | None = None,
+                      max_nodes: int = 600) -> dict[str, Any]:
         """
         Entities as nodes, entity references as typed edges (``path`` on the source side).
         Filter mode: ``categories`` picks the core; anything linked from outside is a proxy node.
         Focus mode: breadth-first from ``focus`` along references (out / in / both) up to ``depth``.
+        Asset wires (``asset_kinds``) are fanned out for ``asset_focus`` only - one node's meshes and
+        sounds are a readable satellite group, a whole pathway's are not.
         """
         ents = self.entities.all_for_project(project.id)
         by_name = {e.name: e for e in ents}
@@ -123,21 +126,23 @@ class GraphService:
             core = set(sorted(core)[:max_nodes])
 
         edges = [r for r in refs if r["source"] in core or (incoming and r["target"] in core)]
-        if asset_kinds:
-            edges += self._asset_refs(project.id, {by_name[n].id for n in core if n in by_name}, by_id, asset_kinds)
+        if asset_kinds and asset_focus and asset_focus in core and asset_focus in by_name:
+            edges += self._asset_refs(project.id, {by_name[asset_focus].id}, by_id, asset_kinds)
 
         node_ids = set(core)
         for e in edges:
             node_ids.add(e["source"])
             node_ids.add(e["target"])
         free = self._free_ports(project.id, {by_name[n].id: n for n in core if n in by_name})
+        asset_counts = self._asset_counts(project.id, {by_name[n].id: n for n in core if n in by_name})
 
         nodes = []
         for name in sorted(node_ids):
             e = by_name.get(name)
             asset = next((x for x in edges if x["target"] == name and x["kind"] != "entity"), None)
-            if e is None and asset is not None:
-                nodes.append({"id": name, "label": name, "kind": asset["kind"], "exists": True, "asset": True, "proxy": True})
+            if e is None and asset is not None:   # a mesh / brush / sound...: same shape as an entity node so the UI never special-cases missing keys
+                nodes.append({"id": name, "label": name, "kind": asset["kind"], "exists": asset["resolved"], "asset": True, "proxy": True,
+                              "entityType": None, "category": None, "race": None, "faction": None, "errors": 0, "dirty": False, "ports": []})
                 continue
             ports = [{"path": r["path"], "key": r["key"], "target": r["target"]} for r in out_adj.get(name, [])]
             ports += [{"path": p, "key": p.split(".")[-1].split(":")[0], "target": None} for p in free.get(name, [])]
@@ -148,6 +153,7 @@ class GraphService:
                 "race": e.race if e else None, "faction": e.faction if e else None,
                 "errors": e.error_count if e else 0, "dirty": bool(e.is_dirty) if e else False,
                 "proxy": name not in core, "ports": ports if name in core else [],
+                "assetCounts": asset_counts.get(name, {}) if name in core else {},
             })
         return {"focus": focus, "nodes": nodes, "truncated": truncated,
                 "edges": _dedupe(edges, key=lambda x: (x["source"], x["path"], x["target"]))}
@@ -162,8 +168,28 @@ class GraphService:
         if not entity_ids:
             return []
         rows = self.db.execute(select(Reference).where(Reference.entity_id.in_(entity_ids), Reference.kind.in_(kinds))).scalars().all()
-        return [{"source": by_id[r.entity_id].name, "target": r.target, "path": r.path, "key": r.key, "kind": r.kind,
-                 "resolved": r.resolved} for r in rows]
+        # one edge per (entity, kind, asset) - five weapons sharing a hit effect are one line with paths=[...]
+        merged: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for r in rows:
+            k = (by_id[r.entity_id].name, r.kind, r.target)
+            e = merged.get(k)
+            if e is None:
+                merged[k] = e = {"source": k[0], "target": r.target, "path": r.path, "key": r.key, "kind": r.kind,
+                                 "resolved": r.resolved, "paths": [], "count": 0}
+            e["paths"].append(r.path)
+            e["count"] += 1
+        return list(merged.values())
+
+    def _asset_counts(self, project_id: int, ids: dict[int, str]) -> dict[str, dict[str, int]]:
+        """name -> {kind: n} for every non-entity, non-string reference (what the node's Assets rows show)."""
+        if not ids:
+            return {}
+        rows = self.db.execute(select(Reference.entity_id, Reference.kind, func.count()).where(
+            Reference.entity_id.in_(ids), Reference.kind.notin_(("entity", "string"))).group_by(Reference.entity_id, Reference.kind)).all()
+        out: dict[str, dict[str, int]] = {}
+        for eid, kind, n in rows:
+            out.setdefault(ids[eid], {})[kind] = n
+        return out
 
     def _free_ports(self, project_id: int, ids: dict[int, str]) -> dict[str, list[str]]:
         """Empty entity-reference slots (``ability:3 ""``) that a new connection could fill."""

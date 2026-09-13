@@ -1,0 +1,28 @@
+.chip {
+  width: 210px;
+  height: 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px 0 9px;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px dotted var(--border-strong);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  cursor: pointer;
+  position: relative;
+}
+.chip:hover { border-color: var(--accent); color: var(--text-primary); }
+.chip[data-selected] { box-shadow: 0 0 0 2px var(--accent); }
+.chip[data-missing] { border-color: var(--error); color: var(--error); }
+.chip[data-more] { border-style: dashed; font-style: italic; color: var(--text-muted); background: transparent; }
+.chip[data-more]:hover { color: var(--text-primary); }
+
+.icon { flex-shrink: 0; opacity: 0.8; }
+.name { flex: 1; min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { font-size: 9px; color: var(--text-muted); white-space: nowrap; }
+.chip[data-missing] .kind { color: var(--error); }
+.count { font-size: 9px; font-family: var(--font-mono); padding: 0 4px; border-radius: 7px; background: var(--bg-active); color: var(--text-secondary); }
+.handle { width: 6px; height: 6px; background: var(--border-strong); border: none; left: -3px; }

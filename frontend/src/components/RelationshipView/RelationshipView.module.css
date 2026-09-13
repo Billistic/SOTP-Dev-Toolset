@@ -42,3 +42,5 @@
 .clearBtn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--font-size-sm); border: 1px solid var(--border-default); }
 .clearBtn:hover { color: var(--text-primary); border-color: var(--accent); background: var(--bg-hover); }
 .focusBtn { display: inline-flex; align-items: center; gap: 5px; }
+
+.hintInline { color: var(--text-muted); font-style: italic; }

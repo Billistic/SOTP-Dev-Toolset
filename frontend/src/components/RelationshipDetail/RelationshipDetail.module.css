@@ -1,4 +1,4 @@
-.root { width: 320px; flex-shrink: 0; border-left: 1px solid var(--border-subtle); padding: 12px 14px; overflow: auto; background: var(--bg-surface); display: flex; flex-direction: column; gap: 6px; }
+.root { width: 300px; flex-shrink: 0; border-left: 1px solid var(--border-subtle); padding: 12px 14px; overflow: auto; background: var(--bg-surface); display: flex; flex-direction: column; gap: 8px; }
 .head { display: flex; align-items: flex-start; gap: 8px; }
 .titles { flex: 1; min-width: 0; }
 .name { font-size: 13px; font-weight: 600; font-family: var(--font-mono); word-break: break-all; }
@@ -9,7 +9,18 @@
 .warn { font-size: var(--font-size-sm); color: var(--error); }
 .hint { font-size: var(--font-size-sm); color: var(--text-muted); }
 
-.sub { font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-top: 8px; }
+.actions { display: flex; gap: 6px; align-items: center; }
+.actions .btn { min-width: 0; }
+.spacer { flex: 1; }
+
+/* the folded Links row: one line of counts, the lists behind a click */
+.fold { display: flex; align-items: center; gap: 5px; padding: 4px 0; margin-top: 4px; color: var(--text-secondary); font-size: var(--font-size-sm); text-align: left; border-top: 1px solid var(--border-subtle); }
+.fold:hover { color: var(--text-primary); }
+.chev { flex-shrink: 0; transition: transform var(--transition); }
+.chev[data-open] { transform: rotate(90deg); }
+.foldMeta { margin-left: auto; color: var(--text-muted); font-size: 10.5px; white-space: nowrap; }
+
+.linkLists { display: flex; flex-direction: column; gap: 8px; }
 .links { display: flex; flex-direction: column; gap: 2px; }
 .link { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .port { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); white-space: nowrap; min-width: 64px; }
@@ -18,5 +29,6 @@
 .target[data-missing] { color: var(--error); }
 .empty { font-size: var(--font-size-sm); color: var(--text-muted); font-style: italic; }
 
-.actions { display: flex; gap: 6px; align-items: center; margin-top: 12px; }
-.spacer { flex: 1; }
+/* a selected asset chip: the fields on its entity that hold it */
+.fields { display: flex; flex-direction: column; gap: 2px; }
+.field { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

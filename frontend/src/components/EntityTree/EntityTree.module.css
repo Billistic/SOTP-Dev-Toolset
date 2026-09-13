@@ -15,10 +15,11 @@
 .search:focus-within { border-color: var(--accent); }
 .search input { flex: 1; border: none; background: transparent; padding: 5px 0; min-width: 0; }
 
-.filters { display: flex; gap: 12px; font-size: var(--font-size-sm); color: var(--text-secondary); }
-.filters label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+/* wraps at narrow sidebar widths so the New button never runs under the edge */
+.filters { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-width: 0; font-size: var(--font-size-sm); color: var(--text-secondary); }
+.filters label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .spacer { flex: 1; }
-.newBtn { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--font-size-sm); }
+.newBtn { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--font-size-sm); flex-shrink: 0; margin-left: auto; white-space: nowrap; }
 .newBtn:hover { color: var(--text-primary); background: var(--bg-hover); }
 
 .tree { flex: 1; overflow: auto; padding-bottom: 12px; }

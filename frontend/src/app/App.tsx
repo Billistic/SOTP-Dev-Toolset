@@ -8,6 +8,7 @@ import { ToastStack } from '@/components/ToastStack/ToastStack'
 import { TitleBar } from '@/components/TitleBar/TitleBar'
 import { WindowEdges } from '@/components/WindowEdges/WindowEdges'
 import { StringEditorModal } from '@/components/StringEditorModal/StringEditorModal'
+import { isEditableTarget, useUndoStore } from '@/store/useUndoStore'
 import { useUiStore } from '@/store/useUiStore'
 import { useApplyTheme } from '@/hooks/useTheme'
 import styles from './App.module.css'
@@ -27,6 +28,10 @@ export function App() {
       if (!e.ctrlKey) return
       if (e.key === 'b') { e.preventDefault(); useUiStore.getState().toggleSidebar() }
       if (e.key === '`') { e.preventDefault(); useUiStore.getState().toggleBottom() }
+      if (isEditableTarget(e.target)) return   // text fields keep the browser's own undo
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); void useUndoStore.getState().undo() }
+      if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); void useUndoStore.getState().redo() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

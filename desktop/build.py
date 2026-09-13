@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import shutil
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -109,7 +110,21 @@ def write_manifest(setup: Path) -> None:
     print(f"installer: {setup}  sha256={digest[:12]}...  ({setup.stat().st_size / 1e6:.1f} MB)")
 
 
+def warn_if_version_lags() -> None:
+    """A tag such as v2.0.2 with version.py still at 2.0.0 fails the release workflow and mislabels the installer."""
+    try:
+        tags = subprocess.run(["git", "tag", "--list", "v*", "--sort=-v:refname"], cwd=str(ROOT), capture_output=True, text=True).stdout.split()
+    except Exception:
+        return
+    def key(v: str) -> tuple[int, ...]:
+        return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+    newest = max((t for t in tags if key(t)), key=key, default=None)
+    if newest and key(newest) > key(VERSION):   # a release tag exists that the code never caught up with
+        print(f"note: app version is {VERSION} but git already has tag {newest} - run  python desktop/bump_version.py <x.y.z>  before tagging")
+
+
 def main() -> int:
+    warn_if_version_lags()
     do_sign = "--no-sign" not in sys.argv and signing_configured()
     if "--skip-frontend" not in sys.argv:
         build_frontend()
