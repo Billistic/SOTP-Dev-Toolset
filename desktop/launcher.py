@@ -1,7 +1,8 @@
 """
-Desktop entry point: starts the FastAPI backend on a free local port and opens
-the built UI in a native WebView2 window.  Data (database, .env, logs, window
-storage) lives in %LOCALAPPDATA%\\SOTP Dev Env so the install folder stays clean.
+Desktop entry point: opens a small splash window at once (the emblem tracing in while
+the FastAPI backend boots on a free local port), then turns that same window into the
+app window and loads the built UI.  Data (database, .env, logs, window storage) lives
+in %LOCALAPPDATA%\\SOTP Dev Env so the install folder stays clean.
 """
 from __future__ import annotations
 
@@ -17,11 +18,16 @@ from pathlib import Path
 APP_NAME = "SOTP Dev Env"
 FROZEN = getattr(sys, "frozen", False)
 BUNDLE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))   # PyInstaller unpack dir or this folder
+HERE = BUNDLE if FROZEN else Path(__file__).resolve().parent                # splash.html / icon.ico live here
+SPLASH_SIZE = (380, 300)
+MIN_SIZE = (1000, 640)
 
 
 def data_dir() -> Path:
+    """%LOCALAPPDATA%\SOTP Dev Env, or SOTP_DATA_DIR when set (a second, isolated instance for testing / portable use)."""
+    override = os.environ.get("SOTP_DATA_DIR")
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-    d = base / APP_NAME
+    d = Path(override) if override else base / APP_NAME
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -131,30 +137,125 @@ class WindowApi:
         self._resize = None
 
 
-def open_window(url: str, d: Path) -> None:
+def splash_html() -> str:
+    """The splash page with the version filled in; a plain placeholder if the file is missing."""
+    try:
+        from app.version import __version__
+    except Exception:
+        __version__ = ""
+    path = HERE / "splash.html"
+    if path.is_file():
+        return path.read_text(encoding="utf-8").replace("__VERSION__", f"v{__version__}" if __version__ else "")
+    return f"<html><body style='margin:0;background:#0f0f0f;color:#f2f2f2;font-family:Segoe UI;display:grid;place-items:center;height:100vh'>{APP_NAME}</body></html>"
+
+
+def app_geometry() -> tuple[int, int, int | None, int | None]:
+    """App window: 90% of the primary screen (capped), centred; frameless windows get no help from Windows here."""
+    try:
+        import webview
+        scr = webview.screens[0]
+        width, height = min(1480, int(scr.width * 0.9)), min(920, int(scr.height * 0.88))
+        return width, height, max(0, (scr.width - width) // 2), max(0, (scr.height - height) // 2 - 20)
+    except Exception:
+        return 1280, 820, None, None
+
+
+def splash_geometry() -> tuple[int | None, int | None]:
+    try:
+        import webview
+        scr = webview.screens[0]
+        return (scr.width - SPLASH_SIZE[0]) // 2, (scr.height - SPLASH_SIZE[1]) // 2 - 40
+    except Exception:
+        return None, None
+
+
+def open_window(d: Path, port: int) -> int:
+    """Splash first; ``boot`` (below) brings the backend up behind it and then swaps the page for the UI."""
     import webview
     webview.settings["ALLOW_DOWNLOADS"] = True   # pywebview cancels downloads by default; CSV exports need the Save dialog
     api = WindowApi()
-    # size to the primary screen (90%, capped) and centre it; frameless windows get no help from Windows here
-    try:
-        scr = webview.screens[0]
-        width, height = min(1480, int(scr.width * 0.9)), min(920, int(scr.height * 0.88))
-        x, y = max(0, (scr.width - width) // 2), max(0, (scr.height - height) // 2 - 20)
-    except Exception:
-        width, height, x, y = 1280, 820, None, None
-    # frameless: the React TitleBar component draws the caption and window buttons (Discord / Claude Desktop style)
-    window = webview.create_window(APP_NAME, url, width=width, height=height, x=x, y=y, min_size=(1000, 640), frameless=True,
-                                   easy_drag=False, background_color="#0f0f0f", text_select=True, js_api=api)
+    sx, sy = splash_geometry()
+    # frameless: the splash draws its own tile, later the React TitleBar draws the caption and window buttons
+    window = webview.create_window(APP_NAME, html=splash_html(), width=SPLASH_SIZE[0], height=SPLASH_SIZE[1], x=sx, y=sy,
+                                   frameless=True, easy_drag=False, background_color="#0f0f0f", text_select=True, js_api=api)
     api._window = window
     for name, value in (("maximized", True), ("restored", False)):   # keep the state honest for Win+Up / snap
         try:
             getattr(window.events, name).__iadd__(lambda v=value: setattr(api, "_maximized", v))
         except AttributeError:
             pass
+    result: dict = {"code": 0, "server": None}
     # storage_path keeps localStorage (theme, tabs, graph settings) between launches; icon = taskbar / alt-tab
-    icon = BUNDLE / "icon.ico" if FROZEN else Path(__file__).resolve().parent / "icon.ico"
-    webview.start(gui="edgechromium", private_mode=False, storage_path=str(d / "webview"), debug="--devtools" in sys.argv,
-                  icon=str(icon) if icon.exists() else None)
+    icon = HERE / "icon.ico"
+    webview.start(boot, (window, d, port, result), gui="edgechromium", private_mode=False, storage_path=str(d / "webview"),
+                  debug="--devtools" in sys.argv, icon=str(icon) if icon.exists() else None)
+    if result["server"] is not None:   # window closed: stop the backend thread
+        result["server"].should_exit = True
+    return result["code"]
+
+
+def boot(window, d: Path, port: int, result: dict) -> None:
+    """Runs on a worker thread once the splash is showing: backend up, then the window becomes the app."""
+    log = logging.getLogger("launcher")
+    url = f"http://127.0.0.1:{port}"
+
+    def status(text: str, progress: float | None = None) -> None:
+        try:
+            window.evaluate_js(f"setStatus({text!r}, {'null' if progress is None else progress})")
+        except Exception:   # the page may not be ready for the first call; the next one lands
+            pass
+
+    status("Starting backend")
+    log.info("starting backend on %s (data dir %s)", url, d)
+    try:
+        server = start_backend(port)
+    except Exception:
+        log.exception("backend failed to start")
+        status("The backend failed to start")
+        _fail("The SOTP Dev Env backend failed to start.\nSee launcher.log in " + str(d))
+        result["code"] = 1
+        window.destroy()
+        return
+    if not wait_for(f"{url}/api/health"):
+        log.error("backend did not come up")
+        status("The backend did not answer")
+        _fail("The SOTP Dev Env backend did not start.\nSee launcher.log in " + str(d))
+        result["code"] = 1
+        window.destroy()
+        return
+    status("Backend ready", 0.5)
+    time.sleep(0.25)
+    status("Loading interface", 0.8)
+    result["server"] = server   # the exit path stops it once the window is gone
+    # swap: fade the splash, grow the window to app size, load the UI (same window, so no taskbar flicker)
+    try:
+        window.evaluate_js("leave()")
+    except Exception:
+        pass
+    time.sleep(0.3)
+    width, height, x, y = app_geometry()
+    window.load_url(url)
+    try:
+        if x is not None:
+            window.move(x, y)
+        window.resize(width, height)
+        _set_min_size(window, *MIN_SIZE)
+    except Exception:
+        log.exception("could not size the app window")
+
+
+def _set_min_size(window, w: int, h: int) -> None:
+    """The splash is smaller than the app's minimum, so the minimum is applied only now (physical pixels, UI thread)."""
+    form = getattr(window, "native", None)
+    if form is None:
+        return
+    from System import Action
+    from System.Drawing import Size
+    scale = getattr(form, "_scale", 1.0) or 1.0
+
+    def apply():
+        form.MinimumSize = Size(int(w * scale), int(h * scale))
+    form.Invoke(Action(apply))
 
 
 def already_running() -> bool:
@@ -168,7 +269,7 @@ def already_running() -> bool:
 
 
 def main() -> int:
-    if already_running():
+    if already_running() and not os.environ.get("SOTP_ALLOW_MULTIPLE"):
         _fail("SOTP Dev Env is already running.")
         return 0
     d = data_dir()
@@ -176,22 +277,19 @@ def main() -> int:
     log = logging.getLogger("launcher")
     port = int(os.environ.get("PORT") or free_port())
     url = f"http://127.0.0.1:{port}"
-    log.info("starting backend on %s (data dir %s)", url, d)
-    server = start_backend(port)
-    if not wait_for(f"{url}/api/health"):
-        log.error("backend did not come up")
-        _fail("The SOTP Dev Env backend did not start.\nSee launcher.log in " + str(d))
-        return 1
+    code = 0
     try:
-        open_window(url, d)
-    except Exception as exc:   # WebView2 missing or broken: fall back to the default browser
+        code = open_window(d, port)
+    except Exception as exc:   # WebView2 missing or broken: boot the backend here and fall back to the default browser
         log.exception("webview failed, falling back to browser")
-        import webbrowser
-        webbrowser.open(url)
-        _fail(f"Could not open the app window ({exc}).\nThe tool is running in your browser at {url}; close this dialog to stop it.")
-    server.should_exit = True
+        server = start_backend(port)
+        if wait_for(f"{url}/api/health"):
+            import webbrowser
+            webbrowser.open(url)
+            _fail(f"Could not open the app window ({exc}).\nThe tool is running in your browser at {url}; close this dialog to stop it.")
+        server.should_exit = True
     time.sleep(0.5)
-    return 0
+    return code
 
 
 def _fail(message: str) -> None:

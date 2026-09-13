@@ -60,6 +60,15 @@ backend/.venv/Scripts/python desktop/build.py --installer  # + Inno Setup -> des
 is still fully portable (zip it). Run the exe with `--devtools` to get the WebView2 inspector. Set `PORT` to pin
 the backend port. If WebView2 is unavailable the launcher falls back to the default browser.
 
+### Launch splash
+
+`desktop/splash.html` is what you see first: a 380x300 frameless tile with the emblem tracing in while the
+backend boots. `launcher.py` opens the window with that page immediately, brings the backend up on a worker
+thread (`boot`), reports milestones into the page (`setStatus`), then fades it (`leave`), grows the *same*
+window to app size and loads the UI - one window, no taskbar flicker. Open the file with `#demo` in a browser
+to preview the staged timeline. `SOTP_DATA_DIR` and `SOTP_ALLOW_MULTIPLE=1` start a second, isolated instance
+for testing.
+
 ### Code signing
 
 `desktop/sign.ps1` Authenticode-signs (SHA-256, RFC 3161 timestamp) the app exe, the uninstaller and the setup

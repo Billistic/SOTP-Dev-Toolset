@@ -66,6 +66,7 @@ def build_exe() -> Path:
         "--paths", str(BACKEND),
         "--add-data", f"{STAGE / 'ui'}{os.pathsep}ui",
         "--add-data", f"{HERE / 'icon.ico'}{os.pathsep}.",   # window / taskbar icon at runtime
+        "--add-data", f"{HERE / 'splash.html'}{os.pathsep}.",   # the launch splash (emblem + boot status)
         "--collect-submodules", "app",          # the backend package (routers are imported dynamically by name)
         "--add-data", f"{BACKEND / 'app' / 'sins' / 'defs'}{os.pathsep}app/sins/defs",   # the entity grammar tables
         "--collect-submodules", "uvicorn",      # loop / protocol implementations are chosen at runtime
