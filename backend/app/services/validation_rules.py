@@ -72,6 +72,32 @@ def required_keys(project_id: int, entity: Entity, doc: Document) -> Iterator[Di
                      f"Required key '{key}' is missing for {entity.entity_type}.", entity=entity, path=key)
 
 
+def grammar_rules(project_id: int, entity: Entity, doc: Document) -> Iterator[Diagnostic]:
+    """Keys the Rebellion grammar does not know, enum values it does not allow, required fields that are missing."""
+    from ..sins.grammar import grammar
+    try:
+        layout = grammar().layout(doc)
+    except Exception:   # never let a grammar problem block validation
+        return
+    if not layout["known"]:
+        return
+    for sec in layout["sections"]:
+        where = f" in {sec['path']}" if sec["path"] else ""
+        for u in sec["unknown"]:
+            yield _d(project_id, "entity", "info", "UNKNOWN_KEY",
+                     f"'{u['key']}'{where} is not a {entity.entity_type} field in the Rebellion grammar; the game ignores it.",
+                     entity=entity, path=u["path"])
+        for slot in sec["slots"]:
+            if slot.get("invalid"):
+                legal = ", ".join(slot["options"][:8]) + (", ..." if len(slot["options"]) > 8 else "")
+                yield _d(project_id, "entity", "warning", "INVALID_ENUM_VALUE",
+                         f"'{slot['key']}'{where} is {slot['raw']}, which is not a legal value (expected one of {legal}).",
+                         entity=entity, path=slot["path"], target=str(slot["raw"]))
+            elif slot["required"] and not slot["present"] and slot["kind"] != "count" and sec["present"]:
+                yield _d(project_id, "entity", "warning", "MISSING_FIELD",
+                         f"'{slot['key']}'{where} is required for {entity.entity_type} but missing.", entity=entity, path=slot["path"])
+
+
 def weapon_rules(project_id: int, entity: Entity, doc: Document) -> Iterator[Diagnostic]:
     weapons = doc.root.all("Weapon")
     if not weapons:

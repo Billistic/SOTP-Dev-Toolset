@@ -18,6 +18,8 @@ export function useEntity(name: string) {
     qc.invalidateQueries({ queryKey: ['entity', name, 'text'] })
     qc.invalidateQueries({ queryKey: ['entity', name, 'references'] })
     qc.invalidateQueries({ queryKey: ['entity', name, 'peers'] })
+    qc.invalidateQueries({ queryKey: ['entity', name, 'layout'] })
+    qc.invalidateQueries({ queryKey: ['entity', name, 'buffs'] })
   }
 
   const edit = useMutation({

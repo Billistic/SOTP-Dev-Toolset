@@ -6,33 +6,14 @@ from typing import Any
 from ..document import Document, Node
 from .fields import EntitySchema, level_table, specs
 
+# Abilities and buffs are laid out from the Rebellion grammar (sins/grammar.py), block by block; the curated
+# list is kept to the two string fields so the form still shows the localised text up front.
 ABILITY_SCHEMA = EntitySchema("Ability", "ability", specs([
     ("nameStringID", "Name string", "Identity", "ref", {"ref": "string"}),
     ("descStringID", "Description string", "Identity", "ref", {"ref": "string"}),
-    ("buffInstantActionType", "Action type", "Ability", "enum", {"enum": "buffInstantActionType"}),
-    ("buffType", "Applies buff", "Ability", "ref", {"ref": "entity"}),
-    ("maxNumLevels", "Levels", "Ability", "int"),
-    ("isUltimateAbility", "Ultimate", "Ability", "bool"),
-    ("useCostType", "Cost type", "Ability", "enum", {"enum": "useCostType"}),
-    ("isAutoCastAvailable", "Auto-cast available", "AI", "bool"),
-    ("isAutoCastOnByDefault", "Auto-cast default", "AI", "bool"),
-    ("aiUseTime", "AI use time", "AI", "enum", {"enum": "aiUseTime"}),
-    ("hudIcon", "HUD icon", "Visual", "ref", {"ref": "brush"}),
-    ("smallHudIcon", "Small HUD icon", "Visual", "ref", {"ref": "brush"}),
 ]), required=("entityType", "buffInstantActionType"), name_key="nameStringID", desc_key="descStringID")
 
-BUFF_SCHEMA = EntitySchema("Buff", "buff", specs([
-    ("onReapplyDuplicateType", "On reapply", "Ability", "enum", {"enum": "onReapplyDuplicateType"}),
-    ("buffStackingLimitType", "Stacking limit type", "Ability", "enum", {"enum": "buffStackingLimitType"}),
-    ("stackingLimit", "Stacking limit", "Ability", "int"),
-    ("isInterruptable", "Interruptable", "Ability", "bool"),
-    ("isChannelling", "Channelling", "Ability", "bool"),
-    ("numInstantActions", "Instant actions", "Ability", "int"),
-    ("numPeriodicActions", "Periodic actions", "Ability", "int"),
-    ("numOverTimeActions", "Over-time actions", "Ability", "int"),
-    ("numEntityModifiers", "Entity modifiers", "Ability", "int"),
-    ("numFinishConditions", "Finish conditions", "Ability", "int"),
-]), required=("entityType", "numInstantActions", "numFinishConditions"), name_key="", desc_key="")
+BUFF_SCHEMA = EntitySchema("Buff", "buff", [], required=("entityType", "numInstantActions", "numFinishConditions"), name_key="", desc_key="")
 
 PLAYER_SCHEMA = EntitySchema("Player", "player", specs([
     ("raceNameStringID", "Race name string", "Identity", "ref", {"ref": "string"}),

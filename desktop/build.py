@@ -67,6 +67,7 @@ def build_exe() -> Path:
         "--add-data", f"{STAGE / 'ui'}{os.pathsep}ui",
         "--add-data", f"{HERE / 'icon.ico'}{os.pathsep}.",   # window / taskbar icon at runtime
         "--collect-submodules", "app",          # the backend package (routers are imported dynamically by name)
+        "--add-data", f"{BACKEND / 'app' / 'sins' / 'defs'}{os.pathsep}app/sins/defs",   # the entity grammar tables
         "--collect-submodules", "uvicorn",      # loop / protocol implementations are chosen at runtime
         "--collect-all", "webview",             # WebView2 loader DLLs
         "--hidden-import", "sqlalchemy.dialects.sqlite",

@@ -224,3 +224,17 @@ def test_buff_impact_follows_conditional_chain(db):
     assert forced["totals"] == {"DamageAsDamageTargetFromForward": -0.35} and not forced["auto"]
     rows = svc.summary(project, "ship", hull=0.4)["rows"]
     assert any(r["name"] == entity.name and r["dps_total_pct"] < 0 for r in rows)
+
+
+def test_buff_impact_peer_z_and_derived_metrics(db):
+    """Peer z-scores ride along, and per-supply / per-cost figures follow the buffed DPS."""
+    session, project, out = db
+    from app.services.buff_service import BuffService
+    entity = EntityDAO(session).by_name(project.id, "Capital_COV_Avenar_Regr")
+    r = BuffService(session).impact(project, entity, hull=0.4, peers=True)
+    assert r["peers"]["group"] == "CapitalShip / Invalid" and r["peers"]["count"] > 5
+    m = {x["metric"]: x for x in r["metrics"]}
+    assert m["dps_total"]["peer"]["zBuffed"] is not None and m["dps_total"]["peer"]["medianBuffed"] < m["dps_total"]["peer"]["medianBase"]
+    assert round(m["dps_per_supply"]["buffed"] / m["dps_per_supply"]["base"], 3) == round(m["dps_total"]["buffed"] / m["dps_total"]["base"], 3)
+    plain = BuffService(session).impact(project, entity, hull=0.4)
+    assert "peers" not in plain and "peer" not in plain["metrics"][0]

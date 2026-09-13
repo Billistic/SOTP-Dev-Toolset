@@ -34,3 +34,11 @@ input[data-dirty] { border-color: var(--modified); }
 
 .preview { flex-basis: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--font-size-sm); font-style: italic; padding-left: 2px; margin-top: -2px; }
 .previewMissing { color: var(--warning); font-size: var(--font-size-sm); }
+
+.helpTag { color: var(--text-muted); flex-shrink: 0; opacity: 0.45; }
+.row:hover .helpTag { opacity: 1; }
+.row[data-invalid] select, .row[data-invalid] input { border-color: var(--error); box-shadow: 0 0 0 1px color-mix(in srgb, var(--error) 40%, transparent); }
+
+.unknownTag { color: var(--warning); flex-shrink: 0; }
+.row[data-unknown] .label { color: var(--warning); font-family: var(--font-mono); font-size: 12px; }
+.rejected { color: var(--error); font-size: 11px; }

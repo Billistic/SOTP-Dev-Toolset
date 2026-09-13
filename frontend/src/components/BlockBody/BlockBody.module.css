@@ -1,0 +1,36 @@
+.body { display: flex; flex-direction: column; }
+
+.static, .unset, .count {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  min-height: 26px;
+  font-size: var(--font-size-sm);
+}
+.staticLabel, .unsetLabel, .countLabel { color: var(--text-secondary); display: inline-flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.static code { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.static[data-unknown] .staticLabel { color: var(--warning); font-family: var(--font-mono); font-size: 12px; }
+
+.unset { color: var(--text-muted); }
+.unset[data-required] .unsetLabel { color: var(--warning); }
+.kind { font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); margin-left: 4px; }
+.add {
+  display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 9px;
+  border: 1px dashed var(--border-default); color: var(--text-secondary); font-size: 11px; justify-self: start;
+}
+.add:hover:not(:disabled) { color: var(--text-primary); border-color: var(--accent); background: var(--bg-hover); }
+
+.countValue { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.count[data-mismatch] .countValue { color: var(--warning); }
+.muted { color: var(--text-muted); font-family: var(--font-family); font-size: var(--font-size-sm); }
+.warn { color: var(--warning); display: inline-flex; align-items: center; gap: 3px; font-size: 11px; }
+
+.more { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 3px 6px; border-radius: var(--radius-sm); color: var(--text-muted); font-size: var(--font-size-sm); align-self: flex-start; }
+.more:hover { color: var(--text-primary); background: var(--bg-hover); }
+.chev { transition: transform var(--transition); }
+.chev[data-open] { transform: rotate(90deg); }
+
+.remove { color: var(--text-muted); display: grid; place-items: center; padding: 3px; border-radius: var(--radius-sm); }
+.remove:hover:not(:disabled) { color: var(--error); background: var(--bg-hover); }

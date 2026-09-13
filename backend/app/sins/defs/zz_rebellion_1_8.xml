@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keys added to Rebellion after the Definition Viewer's tables were written (1.8x), found by laying
+  the SOTP corpus over the grammar and collecting the leftovers.  ``extend="true"`` appends to an
+  existing structure; ``after`` names the key the new field follows in the file order.
+  Loaded last (file name sorts after the originals).
+-->
+<tns:entity_definitions xmlns:tns="http://www.example.org/element_definitions/">
+	<structure name="Frigate" extend="true">
+		<field name="relationshipChangeRate" validation="Decimal" after="maxMitigation"
+		       help="How fast owning this ship shifts relationships (Rebellion 1.8)."/>
+		<field name="useCustomHyperspaceEffects" validation="Boolean" after="maxRollAngle"
+		       help="TRUE to use the custom hyperspace effect fields instead of the race defaults (Rebellion 1.8)."/>
+	</structure>
+	<structure name="CapitalShip" extend="true">
+		<field name="useCustomHyperspaceEffects" validation="Boolean" after="maxRollAngle"
+		       help="TRUE to use the custom hyperspace effect fields instead of the race defaults (Rebellion 1.8)."/>
+	</structure>
+	<structure name="Titan" extend="true">
+		<field name="useCustomHyperspaceEffects" validation="Boolean" after="maxRollAngle"
+		       help="TRUE to use the custom hyperspace effect fields instead of the race defaults (Rebellion 1.8)."/>
+	</structure>
+	<structure name="Player" extend="true">
+		<field name="playerRaceType" validation="Simple" after="canColonize" help="Race family this player belongs to (Tech, Psi, Phase).">
+			<value>Tech</value>
+			<value>Psi</value>
+			<value>Phase</value>
+		</field>
+	</structure>
+	<structure name="gameEventData" extend="true">
+		<field name="GameEventSound:UseAbilityUnmetConstraintHasColonizeAbility" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintCanHaveShields"/>
+		<field name="GameEventSound:UseAbilityUnmetConstraintNotIsExplored" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintHasColonizeAbility"/>
+		<field name="GameEventSound:UseAbilityUnmetConstraintNotIsTech" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintNotIsExplored"/>
+		<field name="GameEventSound:UseAbilityUnmetConstraintNotIsMinorFactionOwned" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintNotIsTech"/>
+		<field name="GameEventSound:UseAbilityUnmetConstraintNotIsOutlaw" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintNotIsMinorFactionOwned"/>
+		<field name="GameEventSound:UseAbilityUnmetOwnerUncontrolledMinorFaction" validation="Sound" after="GameEventSound:UseAbilityUnmetConstraintNotIsOutlaw"/>
+	</structure>
+</tns:entity_definitions>

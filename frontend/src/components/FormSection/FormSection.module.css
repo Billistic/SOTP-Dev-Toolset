@@ -52,3 +52,6 @@
 .balance { display: inline-flex; align-items: center; gap: 3px; opacity: 0.7; }
 
 .body { padding: 6px 12px 10px; }
+
+.subtitle { margin-left: 8px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+.warn { display: inline-flex; align-items: center; gap: 3px; color: var(--warning); }

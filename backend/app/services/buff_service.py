@@ -81,10 +81,13 @@ class BuffService:
 
     # ── one unit ────────────────────────────────────────────────────────
     def impact(self, project: Project, entity: Entity, *, level: int = 0, hull: float = 1.0,
-               active: set[str] | None = None) -> dict[str, Any]:
+               active: set[str] | None = None, peers: bool = False) -> dict[str, Any]:
         """
         Ability chain plus base / buffed metrics.  ``active`` names chain ids to apply; when omitted the
         set is derived: self-applied buffs whose condition holds at ``hull`` (fraction of max hull).
+        With ``peers`` every metric also carries robust z-scores against the unit's peer group (same
+        entity type and role): base against the peers' file values, buffed against the peers put
+        through the same hull / level scenario with their own buffs.
         """
         abilities, chain = self._chain(project, entity)
         levels = max([b.levels for b in chain] + [1])
@@ -116,13 +119,39 @@ class BuffService:
                     totals[m["type"]] = totals.get(m["type"], 0.0) + m["value"]
         base = self._base(entity)
         buffed = apply_modifiers(base, totals)
-        return {
+        metrics = [{"metric": k, "base": base.get(k), "buffed": buffed.get(k), "delta": _delta(base.get(k), buffed.get(k))}
+                   for k in METRICS if k in base]
+        out = {
             "entity": entity.name, "level": level, "levels": levels, "hull": hull,
             "abilities": abilities, "chain": [b.to_dict() for b in chain], "active": sorted(on), "auto": auto,
-            "totals": totals, "unmodelled": unmodelled,
-            "metrics": [{"metric": k, "base": base.get(k), "buffed": buffed.get(k),
-                         "delta": _delta(base.get(k), buffed.get(k))} for k in METRICS if k in base],
+            "totals": totals, "unmodelled": unmodelled, "metrics": metrics,
         }
+        if peers:
+            out["peers"] = self._peer_context(project, entity, metrics, level=level, hull=hull)
+        return out
+
+    def _peer_context(self, project: Project, entity: Entity, metrics: list[dict[str, Any]], *, level: int, hull: float) -> dict[str, Any]:
+        """Robust z of this unit's base and buffed values among its peers (peers buffed under the same scenario)."""
+        from .analytics_service import AnalyticsService   # local: analytics imports nothing from here, but keep the graph one-way
+        from .stats import describe, percentile_rank, robust_z
+        svc = AnalyticsService(self.db)
+        group = svc._peers(project, entity)
+        peer_base = [self._base(p) for p in group]
+        peer_buffed = []
+        for p in group:   # each peer with its own abilities under the same hull / level assumptions
+            r = self.impact(project, p, level=level, hull=hull)
+            peer_buffed.append({m["metric"]: m["buffed"] for m in r["metrics"]})
+        for m in metrics:
+            k = m["metric"]
+            bases = [pb[k] for pb in peer_base if isinstance(pb.get(k), (int, float))]
+            buffs = [pb[k] for pb in peer_buffed if isinstance(pb.get(k), (int, float))]
+            sb, sf = describe(bases), describe(buffs)
+            zb = robust_z(float(m["base"]), sb) if m["base"] is not None and sb.get("count") else None
+            zf = robust_z(float(m["buffed"]), sf) if m["buffed"] is not None and sf.get("count") else None
+            m["peer"] = {"zBase": None if zb is None else round(zb, 2), "zBuffed": None if zf is None else round(zf, 2),
+                         "medianBase": sb.get("median"), "medianBuffed": sf.get("median"),
+                         "percentileBuffed": percentile_rank(float(m["buffed"]), buffs) if m["buffed"] is not None and buffs else None}
+        return {"group": svc._peer_label(entity), "count": len(group), "names": [p.name for p in group]}
 
     # ── every unit of a category ────────────────────────────────────────
     def summary(self, project: Project, category: str = "ship", *, level: int = 0, hull: float = 1.0) -> dict[str, Any]:
@@ -210,7 +239,8 @@ class BuffService:
     @staticmethod
     def _base(entity: Entity) -> dict[str, float]:
         t = entity.typed_json or {}
-        base = {k: float(v) for k, v in t.items() if k in METRICS and isinstance(v, (int, float)) and not isinstance(v, bool)}
+        keep = set(METRICS) | {"cost_total", "slot_count"}   # the two divisors the per-cost / per-supply metrics need
+        base = {k: float(v) for k, v in t.items() if k in keep and isinstance(v, (int, float)) and not isinstance(v, bool)}
         if "ehp" in base:
             base["ehp_frontal"] = base["ehp"]   # same number until a forward-arc modifier applies
         return base

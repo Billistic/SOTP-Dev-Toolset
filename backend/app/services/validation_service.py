@@ -90,6 +90,7 @@ class ValidationService:
         out: list[Diagnostic] = list(rules.parse_diagnostics(project.id, e, doc))
         out.extend(rules.count_rules(project.id, e, doc))
         out.extend(rules.required_keys(project.id, e, doc))
+        out.extend(rules.grammar_rules(project.id, e, doc))
         out.extend(rules.weapon_rules(project.id, e, doc))
         out.extend(rules.economy_rules(project.id, e))
         out.extend(rules.reference_rules(project.id, e, refs, entity_index=ctx["entity_index"], entity_types=ctx["entity_types"],

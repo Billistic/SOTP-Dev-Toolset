@@ -101,16 +101,42 @@ class Reference:
     target: str
 
 
+def classify_node(node: Node, grammar_kinds: dict[int, str]) -> str | None:
+    """
+    Kind of one value node: the curated tables first (exclusions and explicit keys - they were verified against the
+    asset indexes, e.g. musicTheme is a music track, not a sound), then the grammar's validation type, then the
+    suffix heuristics for whatever is left.
+    """
+    base = node.base_key
+    if base in NOT_REFERENCES:
+        return None
+    if base in REFERENCE_KEYS:
+        return REFERENCE_KEYS[base]
+    kind = grammar_kinds.get(id(node))
+    if kind is not None:
+        return kind
+    parent_key = node.parent.key if node.parent is not None else None
+    return classify_key(node.key, parent_key)
+
+
+def _grammar_kinds(doc: Document) -> dict[int, str]:
+    from ..grammar import grammar   # local: keeps the schemas package importable without the grammar tables
+    try:
+        return grammar().node_kinds(doc)
+    except Exception:   # a grammar hiccup must never stop ingest
+        return {}
+
+
 def extract_references(doc: Document) -> Iterator[Reference]:
     """Yield every non-empty reference in an entity document."""
+    kinds = _grammar_kinds(doc)
     for path, node in doc.root.walk(REPEATABLE):
         if node.is_block or node.kind != "string":
             continue
         target = node.value
         if not target:
             continue
-        parent_key = node.parent.key if node.parent is not None else None
-        kind = classify_key(node.key, parent_key)
+        kind = classify_node(node, kinds)
         if kind is None:
             continue
         yield Reference(path=path, key=node.base_key, kind=kind, target=str(target))
@@ -119,11 +145,11 @@ def extract_references(doc: Document) -> Iterator[Reference]:
 def reference_kinds(doc: Document) -> dict[str, str]:
     """path -> kind for every string-valued node that is a reference, empty values included."""
     out: dict[str, str] = {}
+    kinds = _grammar_kinds(doc)
     for path, node in doc.root.walk():   # index only real duplicates, matching the UI's path convention
         if node.is_block or node.kind != "string":
             continue
-        parent_key = node.parent.key if node.parent is not None else None
-        kind = classify_key(node.key, parent_key)
+        kind = classify_node(node, kinds)
         if kind is not None:
             out[path] = kind
     return out

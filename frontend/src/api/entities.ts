@@ -1,6 +1,6 @@
 import { api, qs } from './client'
 import type {
-  BuffImpact, Diagnostic, EditChange, EntityDetail, EntitySummary, IncomingReference, PeerProfile, Reference, TypeCount,
+  BuffImpact, Diagnostic, EditChange, EntityDetail, EntityLayout, EntitySummary, IncomingReference, PeerProfile, Reference, TypeCount,
 } from '@/types/api'
 
 export interface EntityFilters {
@@ -34,6 +34,7 @@ export const entitiesApi = {
   referencedBy: (name: string) => api.get<IncomingReference[]>(`/entities/${enc(name)}/referenced-by`),
   diagnostics: (name: string) => api.get<Diagnostic[]>(`/entities/${enc(name)}/diagnostics`),
   peers: (name: string) => api.get<PeerProfile>(`/entities/${enc(name)}/peers`),
+  layout: (name: string) => api.get<EntityLayout>(`/entities/${enc(name)}/layout`),
   buffs: (name: string, p: { level?: number; hull?: number; active?: string } = {}) => api.get<BuffImpact>(`/entities/${enc(name)}/buffs${qs(p)}`),
   setManifest: (name: string, listed: boolean) =>
     api.put<{ listed: boolean; changed: boolean; entity: EntityDetail }>(`/entities/${enc(name)}/manifest`, { listed }),

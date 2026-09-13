@@ -214,6 +214,37 @@ drops or adds anything the tool did not write itself:
 `brush.manifest`, `galaxy.manifest` and `skybox.manifest` list file types the tool does not create, so they
 are left alone.
 
+### The form covers the whole file: the Rebellion grammar
+
+`backend/app/sins/defs/*.xml` describe every Sins: Rebellion data-file format - which keys each
+`entityType` carries, in what order, with what value kind, which enum values are legal and which
+sub-fields a given enum value implies (`buffInstantActionType "ApplyBuffToSelf"` brings `buffType` and
+`effectInfo`; `useCostType "AntiMatter"` brings `antiMatterCost` and `cooldownTime`). They come from the
+community *Sins Definition Viewer* and are the machine-readable twin of the wiki's `AbilitySyntax` /
+`BuffSyntax` pages; `zz_rebellion_1_8.xml` adds the handful of 1.8x keys the viewer predates.
+
+`sins/grammar.py` walks a parsed file alongside its grammar (`GET /api/entities/{name}/layout`); the Form
+view (`utils/formPlan.ts`) then folds that into tiles so every field has exactly one place:
+
+- the curated specs (`sins/schemas/*.py`) supply labels, units, balance flags and the group of the fields
+  they name; every other root field is classified into the same groups by key (`classifyKey`: sounds ->
+  Audio, meshes / icons / effects -> Visual, hull / shield / armour -> Durability, ...);
+- repeated blocks (`instantAction[i]`, `entityModifier[i]`, `researchModifier[i]`, `MeshNameInfo[i]`) fold
+  into one tile each, headed by their count row and an **add** button, every item removable;
+- big single blocks (`Prerequisites`, `gameEventData`, `hudSkinData`) get their own tile next to their group;
+  small ones (`researchWindowLocation`, `effectInfo`) sit inside the group as collapsible sub-blocks, and
+  nested blocks stay nested however deep;
+- inside a tile: legal enum values as a closed dropdown (an illegal value is kept, flagged and listed as such),
+  integers refuse decimals, `Level:0..3` / cost blocks on one row, missing required fields flagged with **add**
+  (the grammar's default text is inserted in the right place), optional unset fields behind a toggle, and keys
+  the grammar does not know shown in amber with a remove button. Changing a switch field (`▸`) re-lays the
+  block: the old value's fields become "not in grammar", the new value's appear as missing.
+
+The same walk feeds validation (`UNKNOWN_KEY`, `INVALID_ENUM_VALUE`, `MISSING_FIELD`) and the reference
+extractor, where the grammar's validation type (StringInfo, Brush, Sound...) is used for any key the curated
+tables do not name. Entity types outside the tables fall back to the curated groups plus a generic
+"Other fields" tile.
+
 ### Picking references instead of typing them
 
 Every reference field — meshes, particles, textures, brushes/icons, sounds, music, explosions, abilities and
@@ -242,6 +273,7 @@ on every reference leaf (`refKinds` in the entity detail), so weapon sounds and 
 |---|---|
 | `MISSING_<KIND>` (`MISSING_ENTITY`, `MISSING_STRING`, `MISSING_MESH`, `MISSING_BRUSH`, `MISSING_PARTICLE`, `MISSING_SOUND`, …) | A field points at something that is not in the mod (nor the base game, if indexed). |
 | `MANIFEST_MISSING_FILE` / `NOT_IN_MANIFEST` / `MANIFEST_DUPLICATE` / `MANIFEST_MALFORMED` | `entity.manifest` and `GameInfo/` disagree, or a manifest line has junk after the closing quote. |
+| `UNKNOWN_KEY` / `INVALID_ENUM_VALUE` / `MISSING_FIELD` | The Rebellion grammar does not know a key, does not allow an enum value, or expects a field that is missing. |
 | `COUNT_MISMATCH` | A `numX` / `xCount` key does not match the number of items that follow it. |
 | `DUPLICATE_STRING` / `UNUSED_STRING` / `VANILLA_STRING` | String-table hygiene. |
 | `PLAYER_MISSING_MEMBER` / `PLAYER_DUPLICATE_MEMBER` / `UNREACHABLE_ENTITY` | Player build lists vs. what actually exists. |
@@ -278,6 +310,11 @@ blocks per level, and re-derives the typed metrics with the chosen buffs applied
   and takes 35 % less damage from the front at all times.
 - Abilities that are not in the mod (inherited from the base game) are flagged; index a vanilla root to
   follow them.
+- The per-ship table only lists metrics that change (the rest are one click away) and adds **z vs peers**:
+  the buffed value's robust z (median / MAD, shaded at |z| >= 1 and >= 2) among the ship's peer group
+  (same entity type and role) with every peer put through the same hull / level scenario carrying its own
+  buffs; the base z is shown in brackets when it differs. A buff everyone in the class shares therefore
+  leaves z unchanged - which is the point.
 
 ## Notable findings in the current mod
 

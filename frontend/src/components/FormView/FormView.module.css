@@ -42,3 +42,5 @@
 .weaponType { font-weight: 600; color: var(--accent); min-width: 70px; }
 .weaponStat { font-family: var(--font-mono); color: var(--text-secondary); }
 .weapons .btn { align-self: flex-start; margin-top: 4px; }
+
+.grammarNote { color: var(--text-muted); margin-left: 6px; }

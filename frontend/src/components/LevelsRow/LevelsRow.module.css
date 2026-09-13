@@ -1,0 +1,21 @@
+.row {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  min-height: 28px;
+}
+.label { color: var(--text-secondary); font-size: var(--font-size-sm); display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.helpTag { color: var(--text-muted); opacity: 0.45; flex-shrink: 0; }
+.row:hover .helpTag { opacity: 1; }
+.cells { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.cell { display: inline-flex; align-items: center; gap: 4px; }
+.cell[data-missing] { opacity: 0.5; }
+.sub { font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); }
+.num { width: 78px; font-family: var(--font-mono); text-align: right; font-size: 12px; padding: 2px 5px; }
+.num[data-dirty] { border-color: var(--modified); }
+.absent { color: var(--text-muted); font-size: var(--font-size-sm); }
+.extra { font-family: var(--font-mono); font-size: 11px; color: var(--warning); }
+.balanceTag { color: var(--text-muted); flex-shrink: 0; opacity: 0.55; }
+.row:hover .balanceTag { opacity: 1; color: var(--accent); }

@@ -355,7 +355,8 @@ export interface BuffAbility {
   maxLevels?: number | null
   action?: string | null
 }
-export interface BuffMetric { metric: string; base: number | null; buffed: number | null; delta: { abs: number | null; pct: number | null } | null }
+export interface BuffPeer { zBase: number | null; zBuffed: number | null; medianBase: number | null; medianBuffed: number | null; percentileBuffed: number | null }
+export interface BuffMetric { metric: string; base: number | null; buffed: number | null; delta: { abs: number | null; pct: number | null } | null; peer?: BuffPeer }
 export interface BuffImpact {
   entity: string
   level: number
@@ -368,6 +369,7 @@ export interface BuffImpact {
   totals: Record<string, number>
   unmodelled: { buff: string; type: string; value: number | null }[]
   metrics: BuffMetric[]
+  peers?: { group: string; count: number; names: string[] }
 }
 export interface BuffSummary {
   category: string
@@ -376,3 +378,47 @@ export interface BuffSummary {
   headline: string[]
   rows: Record<string, unknown>[]
 }
+
+// ── grammar layout (sins/grammar.py) ────────────────────────────────────
+export type SlotKind = 'bool' | 'int' | 'float' | 'string' | 'enum' | 'ref' | 'color' | 'position' | 'orientation' | 'coordinate'
+  | 'levels' | 'cost' | 'levelinc' | 'section' | 'count'
+export interface LayoutSubValue { key: string; path: string; present: boolean; raw: string | null; legacy: boolean }
+export interface LayoutSlot {
+  key: string
+  path: string
+  kind: SlotKind
+  ref: string | null
+  options: string[] | null
+  enum: string | null
+  required: boolean
+  help: string | null
+  legacy: boolean
+  present: boolean
+  raw: string | null
+  block: boolean
+  template: string | null          // text fragment that adds this field / block (insertText)
+  invalid?: boolean                // enum value the grammar does not allow
+  switch?: boolean                 // a condition field: its value decides which fields follow
+  readonly?: boolean
+  values?: LayoutSubValue[]        // levels / cost / levelinc sub-values
+  unknown?: { key: string; path: string; raw: string | null }[]
+  item?: string | null             // count: the repeated key
+  limit?: number | null
+  occurrences?: number
+  itemTemplate?: string | null
+  mismatch?: boolean
+}
+export interface LayoutUnknown { key: string; path: string; raw: string | null; block: boolean; children: number }
+export interface LayoutSection {
+  id: string
+  path: string
+  parent: string
+  title: string
+  subtitle: string | null
+  help: string | null
+  required: boolean
+  present: boolean
+  slots: LayoutSlot[]
+  unknown: LayoutUnknown[]
+}
+export interface EntityLayout { entityType: string | null; known: boolean; sections: LayoutSection[] }

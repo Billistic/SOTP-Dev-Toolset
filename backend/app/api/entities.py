@@ -12,6 +12,7 @@ from ..dao import DiagnosticDAO, EntityDAO
 from ..db import get_db
 from ..models import Entity, Project
 from ..sins import Document
+from ..sins.grammar import grammar
 from ..sins.schemas import schema_for
 from ..sins.schemas.references import reference_kinds
 from ..services.analytics_service import AnalyticsService
@@ -155,12 +156,18 @@ def entity_peers(entity: Entity = Depends(get_entity), db: Session = Depends(get
     return AnalyticsService(db).peer_profile(project, entity)
 
 
+@router.get("/{name}/layout")
+def entity_layout(entity: Entity = Depends(get_entity)):
+    """Every field the Rebellion grammar expects for this entity, section by section (see sins/grammar.py)."""
+    return grammar().layout(Document.from_json(entity.tree_json))
+
+
 @router.get("/{name}/buffs")
-def entity_buffs(level: int = 0, hull: float = 1.0, active: str | None = None, entity: Entity = Depends(get_entity),
-                 db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    """Ability -> buff chain and the unit's metrics with those buffs applied (see BuffService)."""
+def entity_buffs(level: int = 0, hull: float = 1.0, active: str | None = None, peers: bool = True,
+                 entity: Entity = Depends(get_entity), db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Ability -> buff chain and the unit's metrics with those buffs applied, ranked among its peers (see BuffService)."""
     chosen = set(filter(None, active.split(","))) if active is not None else None
-    return BuffService(db).impact(project, entity, level=level, hull=max(0.0, min(hull, 1.0)), active=chosen)
+    return BuffService(db).impact(project, entity, level=level, hull=max(0.0, min(hull, 1.0)), active=chosen, peers=peers)
 
 
 @router.get("/{name}/players")
