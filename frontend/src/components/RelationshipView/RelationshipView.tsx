@@ -47,7 +47,7 @@ const nodeWidth = (n: RelNode) => (n.proxy ? 190 : 230)
 function hubOffset(n: RelNode, wired: string[]) {
   const rows = KIND_ORDER.filter((k) => (n.assetCounts?.[k] ?? 0) > 0)
   const top = nodeHeight(n) - (18 * rows.length + 6) + 3
-  const ys = rows.map((k, i) => top + 18 * i + 11).filter((_, i) => wired.includes(rows[i]))
+  const ys = rows.map((k, i) => (wired.includes(k) ? top + 18 * i + 11 : null)).filter((y): y is number => y !== null)
   return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : nodeHeight(n) / 2
 }
 
