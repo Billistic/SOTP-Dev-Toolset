@@ -50,7 +50,7 @@ export const useUiStore = create<UiState>()(
       activity: 'explorer',
       sidebarVisible: true,
       sidebarWidth: 280,
-      bottomVisible: true,
+      bottomVisible: false,   // problems panel starts closed; Ctrl+` or the status-bar button opens it (not persisted, so every launch starts this way)
       bottomHeight: 220,
       tabs: [],
       activeTab: null,
