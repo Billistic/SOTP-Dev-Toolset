@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Copy, Minus, Square, X } from 'lucide-react'
 import { useDesktop } from '@/hooks/useDesktop'
 import { useProject } from '@/hooks/useProject'
+import { useWindowStore } from '@/store/useWindowStore'
 import { Emblem } from '@/components/Brand/Brand'
 import styles from './TitleBar.module.css'
 
@@ -12,8 +13,9 @@ import styles from './TitleBar.module.css'
 export function TitleBar() {
   const api = useDesktop()
   const { project } = useProject()
-  const [maximized, setMaximized] = useState(false)
-  useEffect(() => { api?.is_maximized().then(setMaximized).catch(() => undefined) }, [api])
+  const maximized = useWindowStore((s) => s.maximized)
+  const setMaximized = useWindowStore((s) => s.setMaximized)
+  useEffect(() => { api?.is_maximized().then(setMaximized).catch(() => undefined) }, [api, setMaximized])
   if (!api) return null
   const toggle = () => api.toggle_maximize().then(setMaximized).catch(() => undefined)
 

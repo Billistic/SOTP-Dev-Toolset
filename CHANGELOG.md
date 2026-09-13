@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1
+
+- entity.manifest is maintained automatically: a new entity's first write adds its line, deleting an entity removes it (order, CRLF and hand-made entries preserved). Project view shows manifest status with a non-destructive Sync; entities not listed get an "add to manifest" chip. Malformed manifest lines are reported.
+- Key/value entry (tree editor "Add key", new strings) uses in-app dialogs instead of browser prompts; block/weapon removal asks with a proper confirm dialog.
+- Relationship builder: clear "Pathways" home / "Clear focus" breadcrumb, Reset view, "Add existing" to bring any entity into the scene (and remove it again); the pathway scene survives a focus round-trip.
+- CSV export works in the desktop app (downloads open a Save dialog) and exports the metric table exactly as shown.
+- Buff impact: per-ship "Buff impact" tab follows ability -> buff -> nested buffs, simulates hull-threshold conditions and ability level, and shows base vs buffed metrics; Analytics gained a fleet-wide Buff impact table. Metric tables stay unbuffed.
+- Window can be resized from its edges and corners (frameless window).
+
 ## 2.0.0
 
 - First desktop release: windowed app (WebView2), installer, signed binaries, in-app updates.

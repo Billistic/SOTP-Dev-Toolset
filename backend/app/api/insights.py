@@ -11,7 +11,9 @@ from ..db import get_db
 from ..models import Project
 from ..services.analytics_service import METRICS, AnalyticsService
 from ..services.balance_service import BalanceService
+from ..services.buff_service import BuffService
 from ..services.export_service import ExportService
+from ..services.manifest_service import ManifestService
 from ..services.graph_service import GraphService
 from .deps import get_project
 
@@ -115,6 +117,13 @@ def neighbourhood(name: str, depth: int = Query(1, ge=1, le=3), db: Session = De
     return GraphService(db).neighbourhood(project, name, depth)
 
 
+@router.get("/analytics/buffs")
+def buff_summary(category: str = "ship", level: int = 0, hull: float = 1.0, db: Session = Depends(get_db),
+                 project: Project = Depends(get_project)):
+    """Every unit whose own abilities change its numbers: base vs buffed headline metrics."""
+    return BuffService(db).summary(project, category, level=level, hull=max(0.0, min(hull, 1.0)))
+
+
 # ── export ──────────────────────────────────────────────────────────────
 @router.post("/export/write-dirty")
 def write_dirty(mode: str = "preserve", db: Session = Depends(get_db), project: Project = Depends(get_project)):
@@ -123,9 +132,28 @@ def write_dirty(mode: str = "preserve", db: Session = Depends(get_db), project: 
 
 @router.post("/export/manifest")
 def write_manifest(db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    return {"written": str(ExportService(db).write_manifest(project))}
+    """Reconcile entity.manifest with the tool's writes / deletes; never touches hand-made entries."""
+    return ExportService(db).write_manifest(project)
 
 
-@router.get("/export/csv/{entity_type}", response_class=PlainTextResponse)
+@router.get("/export/manifest")
+def manifest_status(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    return ManifestService(db).status(project)
+
+
+@router.get("/export/csv/{entity_type}")
 def export_csv(entity_type: str, db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    return ExportService(db).csv_for_type(project, entity_type)
+    return _csv_download(ExportService(db).csv_for_type(project, entity_type), f"{entity_type}.csv")
+
+
+@router.get("/export/metrics/{category}")
+def export_metrics_csv(category: str, entity_type: str | None = None, db: Session = Depends(get_db),
+                       project: Project = Depends(get_project)):
+    """The metric table exactly as the Analytics view shows it."""
+    return _csv_download(ExportService(db).csv_for_metrics(project, category, entity_type), f"{entity_type or category}-metrics.csv")
+
+
+def _csv_download(text: str, filename: str) -> PlainTextResponse:
+    # attachment + filename: browsers and the desktop shell save it under a sensible name instead of rendering it
+    return PlainTextResponse(text, media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})

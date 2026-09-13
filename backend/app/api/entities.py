@@ -15,8 +15,11 @@ from ..sins import Document
 from ..sins.schemas import schema_for
 from ..sins.schemas.references import reference_kinds
 from ..services.analytics_service import AnalyticsService
+from ..services.buff_service import BuffService
 from ..services.edit_service import EditError, EditService
 from ..services.export_service import ExportService
+from ..services.validation_service import ValidationService
+from ..services.manifest_service import ManifestService
 from .deps import get_entity, get_project
 
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -109,6 +112,22 @@ def write_entity(mode: str = "preserve", entity: Entity = Depends(get_entity), d
     return {"written": str(path), "entity": entity.summary()}
 
 
+class ManifestIn(BaseModel):
+    listed: bool
+
+
+@router.put("/{name}/manifest")
+def set_manifest_listing(body: ManifestIn, entity: Entity = Depends(get_entity), db: Session = Depends(get_db),
+                         project: Project = Depends(get_project)):
+    """Add the entity's file to entity.manifest (so the game loads it) or take it out."""
+    svc = ManifestService(db)
+    changed = svc.add(project, entity) if body.listed else svc.remove(project, entity)
+    if changed:
+        ValidationService(db).run_manifest(project)
+        db.commit()
+    return {"listed": body.listed, "changed": changed, "entity": _detail(entity, db, project)}
+
+
 @router.delete("/{name}")
 def delete_entity(move_file: bool = True, entity: Entity = Depends(get_entity), db: Session = Depends(get_db),
                   project: Project = Depends(get_project)):
@@ -134,6 +153,14 @@ def entity_diagnostics(entity: Entity = Depends(get_entity), db: Session = Depen
 @router.get("/{name}/peers")
 def entity_peers(entity: Entity = Depends(get_entity), db: Session = Depends(get_db), project: Project = Depends(get_project)):
     return AnalyticsService(db).peer_profile(project, entity)
+
+
+@router.get("/{name}/buffs")
+def entity_buffs(level: int = 0, hull: float = 1.0, active: str | None = None, entity: Entity = Depends(get_entity),
+                 db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Ability -> buff chain and the unit's metrics with those buffs applied (see BuffService)."""
+    chosen = set(filter(None, active.split(","))) if active is not None else None
+    return BuffService(db).impact(project, entity, level=level, hull=max(0.0, min(hull, 1.0)), active=chosen)
 
 
 @router.get("/{name}/players")

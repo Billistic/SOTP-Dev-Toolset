@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Crosshair, ExternalLink, Trash2, Unlink, X } from 'lucide-react'
+import { Crosshair, ExternalLink, EyeOff, Trash2, Unlink, X } from 'lucide-react'
 import { entitiesApi } from '@/api/entities'
 import { useUiStore, tabId } from '@/store/useUiStore'
 import { toast } from '@/store/useToastStore'
@@ -16,10 +16,12 @@ interface Props {
   onFocus: (id: string) => void
   onClose: () => void
   onDisconnect: (source: string, port: string) => void
+  added?: boolean                    // brought into the scene by hand (Add existing / expanded proxy)
+  onRemoveFromScene?: () => void
 }
 
 /** Side panel for the selected graph node: its links in both directions, focus, open, delete. */
-export function RelationshipDetail({ node, edges, onSelect, onFocus, onClose, onDisconnect }: Props) {
+export function RelationshipDetail({ node, edges, onSelect, onFocus, onClose, onDisconnect, added, onRemoveFromScene }: Props) {
   const qc = useQueryClient()
   const openEntity = useUiStore((s) => s.openEntity)
   const [confirm, setConfirm] = useState(false)
@@ -46,7 +48,8 @@ export function RelationshipDetail({ node, edges, onSelect, onFocus, onClose, on
         <button type="button" className={styles.icon} onClick={onClose} aria-label="Close"><X size={14} /></button>
       </header>
       {!node.exists && <p className={styles.warn}>Nothing defines this name: every link into it is a broken reference.</p>}
-      {node.proxy && node.exists && !node.asset && <p className={styles.hint}>Outside the current pathway; shown because something here points at it.</p>}
+      {node.proxy && node.exists && !node.asset && <p className={styles.hint}>Outside the current pathway; shown because something here points at it. Click it to expand.</p>}
+      {added && <p className={styles.hint}>Added to this scene by hand; it is not part of the pathway filter.</p>}
 
       <h4 className={styles.sub}>Points at ({outgoing.length})</h4>
       <ul className={styles.links}>
@@ -79,6 +82,7 @@ export function RelationshipDetail({ node, edges, onSelect, onFocus, onClose, on
           <button type="button" className="btn sm" onClick={() => onFocus(node.id)}><Crosshair size={12} /> Focus here</button>
           <button type="button" className="btn sm primary" onClick={() => openEntity(node.id)}><ExternalLink size={12} /> Open</button>
           <span className={styles.spacer} />
+          {added && onRemoveFromScene && <button type="button" className="btn sm" onClick={onRemoveFromScene} title="Take this node out of the scene (the entity itself is untouched)"><EyeOff size={12} /></button>}
           <button type="button" className="btn sm danger" onClick={() => setConfirm(true)} title="Delete this entity from the project"><Trash2 size={12} /></button>
         </div>
       )}

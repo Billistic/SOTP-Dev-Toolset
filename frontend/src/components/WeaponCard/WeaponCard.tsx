@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, Copy, Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog'
 import { FieldRow } from '@/components/FieldRow/FieldRow'
 import { SoundListEditor } from '@/components/SoundListEditor/SoundListEditor'
 import { findNode, isBlock, tokenToValue } from '@/utils/tree'
@@ -24,6 +26,7 @@ const GROUPS = ['Identity', 'Damage', 'Range & timing', 'Effects']
 /** One weapon block: every field grouped, sound lists, and move / duplicate / remove. */
 export function WeaponCard({ index, count, root, row, schema, entityType, open, onToggle, onEdit, busy }: Props) {
   const base = `Weapon[${index}]`
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const weaponType = String(findNode(root, `${base}.WeaponType`)?.v ?? '').replace(/"/g, '')
   const applies = (spec: { when?: string | null }) => !spec.when || spec.when === weaponType
   const valueOf = (spec: FieldSpec) => {
@@ -49,9 +52,16 @@ export function WeaponCard({ index, count, root, row, schema, entityType, open, 
           <button type="button" title="Move down" disabled={busy || index === count - 1} onClick={() => onEdit([{ op: 'move', path: base, offset: 1 }])}><ArrowDown size={13} /></button>
           <button type="button" title="Duplicate weapon" disabled={busy} onClick={() => onEdit([{ op: 'clone', path: base }])}><Copy size={13} /></button>
           <button type="button" title="Remove weapon" disabled={busy} className={styles.danger}
-                  onClick={() => { if (window.confirm(`Remove weapon #${index} (${weaponType})?`)) onEdit([{ op: 'remove', path: base }]) }}><Trash2 size={13} /></button>
+                  onClick={() => setConfirmRemove(true)}><Trash2 size={13} /></button>
         </span>
       </header>
+      {confirmRemove && (
+        <ConfirmDialog title="Remove weapon" confirmLabel="Remove" danger onCancel={() => setConfirmRemove(false)}
+                       onConfirm={() => { onEdit([{ op: 'remove', path: base }]); setConfirmRemove(false) }}>
+          <p>Remove weapon #{index}{weaponType ? ` (${weaponType})` : ''} from this unit?</p>
+          <p className="muted">NumWeapons is re-synced automatically; Revert restores the file if needed.</p>
+        </ConfirmDialog>
+      )}
       {open && (
         <div className={styles.body}>
           {GROUPS.map((g) => {

@@ -11,3 +11,6 @@
 .stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); font-size: var(--font-size-sm); min-width: 180px; }
 .stat strong { font-size: 13px; }
 .hint { color: var(--text-secondary); }
+
+.inline { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-size-sm); color: var(--text-secondary); }
+.inline select { padding: 2px 4px; font-size: var(--font-size-sm); }

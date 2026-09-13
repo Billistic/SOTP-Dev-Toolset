@@ -1,5 +1,7 @@
 import { api, qs } from './client'
-import type { BalanceReport, Distribution, FieldCatalogEntry, Graph, GraphLayout, MetricTable, RelGraph } from '@/types/api'
+import type {
+  BalanceReport, BuffSummary, Distribution, FieldCatalogEntry, Graph, GraphLayout, ManifestStatus, ManifestSync, MetricTable, RelGraph,
+} from '@/types/api'
 
 export interface Overview {
   types: { entityType: string; category: string; count: number; errors: number }[]
@@ -30,6 +32,9 @@ export const insightsApi = {
     api.put<GraphLayout>(`/graph/layout/${encodeURIComponent(viewKey)}`, { positions, merge }),
   clearLayout: (viewKey: string) => api.del<void>(`/graph/layout/${encodeURIComponent(viewKey)}`),
   writeDirty: (mode = 'preserve') => api.post<{ written: string[] }>(`/export/write-dirty${qs({ mode })}`),
-  writeManifest: () => api.post<{ written: string }>('/export/manifest'),
+  writeManifest: () => api.post<ManifestSync>('/export/manifest'),
+  manifestStatus: () => api.get<ManifestStatus>('/export/manifest'),
+  buffSummary: (p: { category?: string; level?: number; hull?: number } = {}) => api.get<BuffSummary>(`/analytics/buffs${qs(p)}`),
   csvUrl: (entityType: string) => `/api/export/csv/${entityType}`,
+  metricsCsvUrl: (category: string, entityType?: string) => `/api/export/metrics/${category}${qs({ entity_type: entityType })}`,
 }

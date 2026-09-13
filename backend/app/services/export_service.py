@@ -18,7 +18,8 @@ from ..models.project import utcnow
 from ..sins import Document, parse
 from ..sins.writer import write
 from ..sins.schemas import schema_for
-from .asset_indexer import read_manifest
+from .manifest_service import ManifestService
+from .validation_service import ValidationService
 
 
 class ExportService:
@@ -33,7 +34,10 @@ class ExportService:
         text = write(Document.from_json(entity.tree_json), mode)
         path = self._target(project, entity.source_path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        new_file = not path.exists()
         path.write_text(text, encoding="utf-8", newline="")
+        if new_file and ManifestService(self.db).add(project, entity) and self._in_place(project):
+            ValidationService(self.db).run_manifest(project)   # a file the game has never seen is now listed: clear NOT_IN_MANIFEST
         if self._in_place(project):
             entity.file_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
             entity.is_dirty = False
@@ -52,19 +56,13 @@ class ExportService:
         self.db.commit()
         return written
 
-    def write_manifest(self, project: Project) -> Path:
-        """Rewrite entity.manifest: keep the existing order, drop entries with no entity, append new ones."""
-        wanted = {e.source_path.rsplit("/", 1)[-1] for e in self.entities.all_for_project(project.id)}
-        current = read_manifest(Path(project.mod_root), "entity.manifest")
-        names: list[str] = []
-        for n in current:
-            if n in wanted and n not in names:
-                names.append(n)
-        names += sorted(wanted - set(names))
-        lines = ["TXT", f"entityNameCount {len(names)}"] + [f'entityName "{n}"' for n in names]
-        path = self._target(project, "entity.manifest")
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="")
-        return path
+    def write_manifest(self, project: Project) -> dict[str, Any]:
+        """Reconcile entity.manifest with what the tool has written / deleted (see ManifestService.sync)."""
+        result = ManifestService(self.db).sync(project)
+        if self._in_place(project):
+            ValidationService(self.db).run_manifest(project)
+        self.db.commit()
+        return result
 
     # ── strings ─────────────────────────────────────────────────────────
     def write_strings(self, project: Project, source_file: str = "String/English.str") -> Path:
@@ -104,6 +102,18 @@ class ExportService:
             t = e.typed_json or {}
             w.writerow([e.name, e.display_name or "", e.race or "", e.faction or "",
                         *[t.get(k, "") for k in typed_keys], *[_fmt(doc.scalar(p)) for p in field_paths]])
+        return buf.getvalue()
+
+    def csv_for_metrics(self, project: Project, category: str, entity_type: str | None = None) -> str:
+        """The Analytics metric table (typed metrics per entity of a category) as CSV text."""
+        from .analytics_service import AnalyticsService   # local: analytics is a heavier import than export needs
+        table = AnalyticsService(self.db).metric_table(project, category, entity_type)
+        head = ["name", "displayName", "entityType", "race", "faction", "role", *table["metrics"]]
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(head)
+        for r in table["rows"]:
+            w.writerow([_fmt(r.get(k)) for k in head])
         return buf.getvalue()
 
     # ── helpers ─────────────────────────────────────────────────────────

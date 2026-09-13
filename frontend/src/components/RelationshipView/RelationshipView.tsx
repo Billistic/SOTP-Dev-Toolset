@@ -5,7 +5,7 @@ import {
   type Connection, type Edge, type Node, type NodeChange, type OnNodeDrag,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Crosshair, LayoutGrid, Maximize2, Plus, X } from 'lucide-react'
+import { ChevronRight, Crosshair, FilePlus2, Home, LayoutGrid, Maximize2, Plus, RotateCcw, X } from 'lucide-react'
 import { insightsApi } from '@/api/insights'
 import { useResolvedTheme } from '@/hooks/useTheme'
 import { useGraphEdits } from '@/hooks/useGraphEdits'
@@ -52,14 +52,15 @@ function Builder() {
   const theme = useResolvedTheme()
   const [selected, setSelected] = useState<string | null>(null)
   const [hover, setHover] = useState<string | null>(null)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState<null | 'focus' | 'add'>(null)
   const [creating, setCreating] = useState(false)
   const key = layoutKey(g)
+  const scene = g.focus ? g.focusInclude : g.include   // nodes brought in by hand for this pathway / focus
   const mode: LayoutMode = g.layoutMode === 'auto' ? (g.focus ? 'compact' : 'pipeline') : g.layoutMode
 
   const params = {
     categories: g.focus ? undefined : g.categories.join(','), focus: g.focus ?? undefined, depth: g.depth,
-    direction: g.direction, incoming: g.incoming || undefined, include: g.include.join(',') || undefined,
+    direction: g.direction, incoming: g.incoming || undefined, include: scene.join(',') || undefined,
     factions: !g.focus && g.faction ? g.faction : undefined, asset_kinds: g.assetKinds.join(',') || undefined,
   }
   const { data: graph, isFetching } = useQuery({ queryKey: ['graph', 'relationships', params], queryFn: () => insightsApi.relationships(params), placeholderData: (p) => p })
@@ -140,7 +141,8 @@ function Builder() {
     setSelected(n.id)
   }
 
-  useEffect(() => { if (selected && graph && !nodeById.has(selected)) setSelected(null) }, [graph, selected, nodeById])
+  // a selection that is not in the graph is dropped - but not while a refetch (e.g. after Add existing) is still on its way
+  useEffect(() => { if (selected && graph && !isFetching && !nodeById.has(selected)) setSelected(null) }, [graph, selected, nodeById, isFetching])
   // a focused entity that was deleted (or renamed) falls back to the pathway view instead of an empty canvas
   useEffect(() => {
     if (graph && g.focus && graph.focus === g.focus && !nodeById.get(g.focus)?.exists) { toast.info(`${g.focus} no longer exists; back to pathways`); g.setFocus(null) }
@@ -162,20 +164,25 @@ function Builder() {
         </select>
         <span className={styles.sep} />
         <div className={styles.focus}>
-          <Crosshair size={13} />
+          <button type="button" className={styles.homeBtn} data-active={!g.focus || undefined} disabled={!g.focus}
+                  onClick={() => g.setFocus(null)} title={g.focus ? 'Leave the focus and show the pathway filters again' : 'Showing the pathway filters'}>
+            <Home size={13} /> Pathways
+          </button>
           {g.focus ? (
             <>
-              <button type="button" className={styles.focusName} onClick={() => setPicking(true)} title="Change the focused entity">{g.focus}</button>
+              <ChevronRight size={12} className={styles.crumbSep} />
+              <Crosshair size={13} />
+              <button type="button" className={styles.focusName} onClick={() => setPicking('focus')} title="Change the focused entity">{g.focus}</button>
               <select value={g.direction} onChange={(e) => g.setDirection(e.target.value as 'out' | 'in' | 'both')} title="Follow references">
                 <option value="out">downstream</option><option value="in">upstream</option><option value="both">both</option>
               </select>
               <select value={g.depth} onChange={(e) => g.setDepth(Number(e.target.value))} title="How many hops">
                 {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{d} hop{d > 1 ? 's' : ''}</option>)}
               </select>
-              <button type="button" className={styles.iconBtn} onClick={() => g.setFocus(null)} title="Back to pathways"><X size={13} /></button>
+              <button type="button" className={styles.clearBtn} onClick={() => g.setFocus(null)} title="Clear the focus and go back to the pathway filters"><X size={12} /> Clear focus</button>
             </>
           ) : (
-            <button type="button" className={styles.focusBtn} onClick={() => setPicking(true)}>Focus one entity…</button>
+            <button type="button" className={styles.focusBtn} onClick={() => setPicking('focus')}><Crosshair size={12} /> Focus one entity…</button>
           )}
         </div>
         <span className={styles.sep} />
@@ -191,6 +198,10 @@ function Builder() {
         <span className={styles.count}>{graph ? `${graph.nodes.length} nodes · ${graph.edges.length} links${graph.truncated ? ' · truncated' : ''}${isFetching ? ' …' : ''}` : ''}</span>
         <button type="button" className={styles.iconBtn} onClick={() => resetLayout.mutate()} title="Auto layout (forget dragged positions)"><LayoutGrid size={14} /></button>
         <button type="button" className={styles.iconBtn} onClick={() => rf.fitView({ padding: 0.15, duration: 300 })} title="Fit to view"><Maximize2 size={14} /></button>
+        <button type="button" className={styles.iconBtn} onClick={() => { g.resetView(); setSelected(null); toast.info('View reset: Ships pathway, all factions') }}
+                title="Reset the view: clear the focus, faction, asset and extra-node filters"><RotateCcw size={14} /></button>
+        <span className={styles.sep} />
+        <button type="button" className="btn sm" onClick={() => setPicking('add')} title="Bring an existing entity into this scene as a full node"><FilePlus2 size={12} /> Add existing</button>
         <button type="button" className="btn sm" onClick={() => setCreating(true)}><Plus size={12} /> New entity</button>
       </div>
 
@@ -207,15 +218,30 @@ function Builder() {
             <Controls showInteractive={false} />
             <MiniMap pannable zoomable nodeClassName={(n) => (n.type === 'proxy' ? '' : 'is-entity')} />
           </ReactFlow>
-          {graph && graph.nodes.length === 0 && <p className={styles.empty}>Nothing to show: pick a pathway above or focus an entity.</p>}
+          {graph && graph.nodes.length === 0 && (
+            <div className={styles.empty}>
+              <p>Nothing to show{g.focus ? ` for ${g.focus}` : ''}.</p>
+              <div className={styles.emptyActions}>
+                {g.focus && <button type="button" className="btn sm" onClick={() => g.setFocus(null)}><Home size={12} /> Back to pathways</button>}
+                {!g.focus && !g.categories.length && <button type="button" className="btn sm" onClick={() => g.setCategories(['ship'])}>Show Ships</button>}
+                <button type="button" className="btn sm" onClick={() => setPicking('add')}><FilePlus2 size={12} /> Add existing entity</button>
+                <button type="button" className="btn sm" onClick={() => g.resetView()}><RotateCcw size={12} /> Reset view</button>
+              </div>
+            </div>
+          )}
         </div>
         {sel && (
           <RelationshipDetail node={sel} edges={graph?.edges ?? []} onSelect={(id) => { const r = nodeById.get(id); if (r?.proxy) g.expand(id); setSelected(id) }}
-                              onFocus={(id) => { g.setFocus(id); setSelected(id) }} onClose={() => setSelected(null)} onDisconnect={disconnect} />
+                              onFocus={(id) => { g.setFocus(id); setSelected(id) }} onClose={() => setSelected(null)} onDisconnect={disconnect}
+                              added={scene.includes(sel.id)} onRemoveFromScene={() => { g.exclude(sel.id); setSelected(null) }} />
         )}
       </div>
 
-      {picking && <AssetPicker kind="entity" value={g.focus ?? ''} onPick={(v) => { g.setFocus(v); setSelected(v) }} onClose={() => setPicking(false)} />}
+      {picking === 'focus' && <AssetPicker kind="entity" value={g.focus ?? ''} onPick={(v) => { g.setFocus(v); setSelected(v) }} onClose={() => setPicking(null)} />}
+      {picking === 'add' && (
+        <AssetPicker kind="entity" value="" onClose={() => setPicking(null)}
+                     onPick={(v) => { if (nodeById.get(v) && !nodeById.get(v)?.proxy) toast.info(`${v} is already in the scene`); else { g.expand(v); toast.success(`Added ${v} to the scene`) } setSelected(v) }} />
+      )}
       {creating && <NewEntityDialog onClose={() => setCreating(false)} />}
     </div>
   )

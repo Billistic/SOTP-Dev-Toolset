@@ -65,7 +65,19 @@ jobs:
           SOTP_SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
         run: python desktop/build.py --installer
 
+      - name: Keep the build output even when publishing fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build
+          path: |
+            desktop/dist/SOTP-Dev-Env-Setup-*.exe
+            desktop/dist/latest.json
+            desktop/dist/release-notes.md
+          if-no-files-found: warn
+
       - name: Publish release
+        if: ${{ github.ref_type == 'tag' }}
         uses: softprops/action-gh-release@v2
         with:
           name: SOTP Dev Env ${{ env.APP_VERSION }}

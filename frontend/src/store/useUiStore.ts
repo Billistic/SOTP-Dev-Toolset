@@ -12,7 +12,7 @@ export type Tab =
 
 export const tabId = (t: Tab) => (t.kind === 'entity' ? `entity:${t.name}` : `view:${t.view}`)
 
-export type EditorMode = 'form' | 'tree' | 'raw' | 'weapons' | 'references' | 'peers'
+export type EditorMode = 'form' | 'tree' | 'raw' | 'weapons' | 'references' | 'peers' | 'buffs'
 export type Theme = 'dark' | 'light' | 'system'
 
 /** Views whose sidebar carries something useful; the rest are full-width workspaces. */

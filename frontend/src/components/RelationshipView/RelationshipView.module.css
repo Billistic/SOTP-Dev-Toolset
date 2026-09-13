@@ -29,5 +29,16 @@
 
 .canvasRow { flex: 1; display: flex; min-height: 0; }
 .canvas { flex: 1; min-width: 0; background: var(--bg-base); position: relative; }
-.empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-secondary); pointer-events: none; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; color: var(--text-secondary); text-align: center; }
+.empty p { margin: 0; }
+.emptyActions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .layoutSel { font-size: var(--font-size-sm); padding: 2px 4px; }
+
+.homeBtn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--font-size-sm); }
+.homeBtn:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.homeBtn[data-active] { color: var(--text-primary); background: var(--bg-active); cursor: default; }
+.homeBtn:disabled:not([data-active]) { opacity: 1; }
+.crumbSep { color: var(--text-muted); }
+.clearBtn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--font-size-sm); border: 1px solid var(--border-default); }
+.clearBtn:hover { color: var(--text-primary); border-color: var(--accent); background: var(--bg-hover); }
+.focusBtn { display: inline-flex; align-items: center; gap: 5px; }

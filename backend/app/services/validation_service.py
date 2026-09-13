@@ -70,6 +70,20 @@ class ValidationService:
         self._update_counts(project, [entity])
         return out
 
+    # ── manifest only (after the tool edits entity.manifest) ────────────
+    def run_manifest(self, project: Project) -> list[Diagnostic]:
+        ctx = self._context(project)
+        self.diags.clear(project.id, scopes=("manifest",))
+        root = Path(project.mod_root)
+        manifest = asset_indexer.read_manifest(root, "entity.manifest")
+        out = list(rules.manifest_rules(project.id, root, manifest,
+                                        {e.source_path: e for e in ctx["entities"] if not e.source_missing},
+                                        ctx["assets"].get("entity", {}), ctx["vanilla_indexed"]))
+        self.db.add_all(out)
+        self.db.flush()
+        self._update_counts(project, ctx["entities"])
+        return out
+
     # ── internals ───────────────────────────────────────────────────────
     def _entity_rules(self, project: Project, e: Entity, refs: list[Reference], ctx: dict[str, Any]) -> list[Diagnostic]:
         doc = Document.from_json(e.tree_json)

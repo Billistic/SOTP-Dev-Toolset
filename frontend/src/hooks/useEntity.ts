@@ -46,7 +46,11 @@ export function useEntity(name: string) {
   })
   const write = useMutation({
     mutationFn: (mode: 'preserve' | 'pretty' = 'preserve') => entitiesApi.write(name, mode),
-    onSuccess: (r) => { toast.success(`Written ${r.written}`); qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ['entities'] }) },
+    onSuccess: (r) => {
+      toast.success(`Written ${r.written}`)
+      qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ['entities'] })
+      qc.invalidateQueries({ queryKey: ['diagnostics'] }); qc.invalidateQueries({ queryKey: ['manifest'] })   // a first write adds a manifest line
+    },
     onError: (e: Error) => toast.error(`Write failed: ${e.message}`),
   })
 
@@ -62,7 +66,17 @@ export function useEntity(name: string) {
     onError: (e: Error) => toast.error(`Delete failed: ${e.message}`),
   })
 
-  return { entity: query.data, isLoading: query.isLoading, error: query.error as Error | null, edit, putText, revert, write, remove }
+  const setManifest = useMutation({
+    mutationFn: (listed: boolean) => entitiesApi.setManifest(name, listed),
+    onSuccess: (r) => {
+      refresh(r.entity)
+      qc.invalidateQueries({ queryKey: ['manifest'] })
+      toast[r.changed ? 'success' : 'info'](r.listed ? (r.changed ? `${name} added to entity.manifest` : 'Already listed') : (r.changed ? `${name} removed from entity.manifest` : 'Was not listed'))
+    },
+    onError: (e: Error) => toast.error(`Manifest update failed: ${e.message}`),
+  })
+
+  return { entity: query.data, isLoading: query.isLoading, error: query.error as Error | null, edit, putText, revert, write, remove, setManifest }
 }
 
 export function useEntityText(name: string, mode: 'preserve' | 'pretty') {

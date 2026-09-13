@@ -304,3 +304,75 @@ export interface EditChange {
   afterLast?: string[]            // insertText: place after the last child with the first of these keys
   after?: string | null
 }
+
+// ── manifest ────────────────────────────────────────────────────────────
+export interface ManifestSync { written: string; added: string[]; removed: string[]; count: number }
+export interface ManifestStatus {
+  path: string
+  count: number
+  missing: string[]          // listed, but no file and no base-game fallback
+  unlisted: string[]         // files on disk the game will not load
+  unlistedWritten: string[]  // ...of which the tool has written
+  vanillaIndexed: boolean
+}
+
+// ── buff impact ─────────────────────────────────────────────────────────
+export interface BuffModifier {
+  type: string
+  values: (number | null)[]
+  value: number | null
+  active: boolean
+  modelled: boolean
+  metric: string | null
+  mode: 'pct' | 'add' | null
+  label: string
+}
+export interface ChainBuff {
+  id: string
+  name: string
+  exists: boolean
+  ability: string
+  parent: string | null
+  depth: number
+  via: string
+  appliesTo: 'self' | 'spawner' | 'target'
+  trigger: string | null
+  condition: { type: string; values: (number | null)[] } | null
+  finish: { type: string; values: (number | null)[] }[]
+  levels: number
+  modifiers: BuffModifier[]
+  boolModifiers: string[]
+  otherActions: string[]
+}
+export interface BuffAbility {
+  slot: string
+  name: string
+  exists: boolean
+  useCost?: string | null
+  trigger?: string | null
+  autoCast?: boolean
+  levelSource?: string | null
+  maxLevels?: number | null
+  action?: string | null
+}
+export interface BuffMetric { metric: string; base: number | null; buffed: number | null; delta: { abs: number | null; pct: number | null } | null }
+export interface BuffImpact {
+  entity: string
+  level: number
+  levels: number
+  hull: number
+  abilities: BuffAbility[]
+  chain: ChainBuff[]
+  active: string[]
+  auto: boolean
+  totals: Record<string, number>
+  unmodelled: { buff: string; type: string; value: number | null }[]
+  metrics: BuffMetric[]
+}
+export interface BuffSummary {
+  category: string
+  level: number
+  hull: number
+  headline: string[]
+  rows: Record<string, unknown>[]
+}

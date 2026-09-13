@@ -171,6 +171,11 @@ def manifest_rules(project_id: int, root: Path, manifest: list[str], entities_by
         if name.lower() in seen:
             yield _d(project_id, "manifest", "warning", "MANIFEST_DUPLICATE", f"'{name}' is listed twice in entity.manifest.", target=name)
         seen.add(name.lower())
+    from .manifest_service import EntityManifest   # local: avoids a rules -> service import cycle at load time
+    for line_no, text in EntityManifest.load(root).malformed():
+        yield _d(project_id, "manifest", "warning", "MANIFEST_MALFORMED",
+                 f"entity.manifest line {line_no} has text after the closing quote ({text.strip()!r}); the game may misread it.",
+                 line=line_no, target=text.strip())
 
 
 def player_rules(project_id: int, members: list[FactionMember], entity_index: dict[str, int],

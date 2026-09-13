@@ -1,0 +1,9 @@
+.edge { position: fixed; z-index: 10000; }
+.edge[data-edge='top'] { top: 0; left: 8px; right: 8px; height: 5px; cursor: ns-resize; }
+.edge[data-edge='bottom'] { bottom: 0; left: 8px; right: 8px; height: 5px; cursor: ns-resize; }
+.edge[data-edge='left'] { left: 0; top: 8px; bottom: 8px; width: 5px; cursor: ew-resize; }
+.edge[data-edge='right'] { right: 0; top: 8px; bottom: 8px; width: 5px; cursor: ew-resize; }
+.edge[data-edge='top-left'] { top: 0; left: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+.edge[data-edge='bottom-right'] { bottom: 0; right: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+.edge[data-edge='top-right'] { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+.edge[data-edge='bottom-left'] { bottom: 0; left: 0; width: 10px; height: 10px; cursor: nesw-resize; }

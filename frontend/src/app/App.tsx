@@ -6,6 +6,7 @@ import { BottomPanel } from '@/layout/BottomPanel/BottomPanel'
 import { StatusBar } from '@/layout/StatusBar/StatusBar'
 import { ToastStack } from '@/components/ToastStack/ToastStack'
 import { TitleBar } from '@/components/TitleBar/TitleBar'
+import { WindowEdges } from '@/components/WindowEdges/WindowEdges'
 import { StringEditorModal } from '@/components/StringEditorModal/StringEditorModal'
 import { useUiStore } from '@/store/useUiStore'
 import { useApplyTheme } from '@/hooks/useTheme'
@@ -69,6 +70,7 @@ export function App() {
         </main>
       </div>
       <StatusBar />
+      <WindowEdges />
       <StringEditorModal />
       <ToastStack />
     </div>

@@ -21,3 +21,5 @@ desktop/build/
 desktop/dist/
 # code-signing material
 desktop/certs/
+desktop/Output/
+desktop/*.zip

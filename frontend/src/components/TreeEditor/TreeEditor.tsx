@@ -3,6 +3,8 @@ import { ChevronDown, ChevronRight, FolderOpen, Plus, Trash2 } from 'lucide-reac
 import { childPath, isBlock, tokenKind, tokenToValue } from '@/utils/tree'
 import { isEnter, isEscape } from '@/utils/keys'
 import { AssetPicker } from '@/components/AssetPicker/AssetPicker'
+import { PromptDialog } from '@/components/PromptDialog/PromptDialog'
+import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog'
 import type { EditChange, EntityDetail, TreeNode } from '@/types/api'
 import styles from './TreeEditor.module.css'
 
@@ -12,10 +14,14 @@ interface Props {
   busy?: boolean
 }
 
+const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*(:[0-9]+)?:?$/
+
 /** Generic editor over the lossless tree: every key, in file order, inline-editable. */
 export function TreeEditor({ entity, onEdit, busy }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [picker, setPicker] = useState<{ path: string; kind: string; value: string; key: string } | null>(null)
+  const [adding, setAdding] = useState<{ parent: string; label: string } | null>(null)
+  const [removing, setRemoving] = useState<{ path: string; key: string; count: number } | null>(null)
   const toggle = (p: string) => setCollapsed((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n })
 
   const renderNodes = (nodes: TreeNode[], parentPath: string, depth: number) =>
@@ -33,13 +39,8 @@ export function TreeEditor({ entity, onEdit, busy }: Props) {
               <span className={styles.blockKey}>{n.k || '[ ]'}</span>
               <span className={styles.count}>{n.c?.length ?? 0}</span>
               <span className={styles.actions}>
-                <button title="Add child value" onClick={() => {
-                  const k = window.prompt('New key name (inside ' + n.k + '):')
-                  if (!k) return
-                  const v = window.prompt('Value (leave empty for a block):') ?? ''
-                  onEdit([{ op: 'add', parent: path, key: k, ...(v === '' ? {} : { value: coerce(v) }) }])
-                }}><Plus size={12} /></button>
-                <button title="Remove block" onClick={() => { if (window.confirm(`Remove block '${n.k}' and its children?`)) onEdit([{ op: 'remove', path }]) }}><Trash2 size={12} /></button>
+                <button title="Add child key" onClick={() => setAdding({ parent: path, label: n.k })}><Plus size={12} /></button>
+                <button title="Remove block" onClick={() => setRemoving({ path, key: n.k, count: n.c?.length ?? 0 })}><Trash2 size={12} /></button>
               </span>
             </div>
             {open && n.c && <ul>{renderNodes(n.c, path, depth + 1)}</ul>}
@@ -68,17 +69,33 @@ export function TreeEditor({ entity, onEdit, busy }: Props) {
     <div className={styles.root}>
       <div className={styles.toolbar}>
         <span className="muted">{entity.tree.header.fmt}{entity.tree.header.archiveVersion ? ` · SinsArchiveVersion ${entity.tree.header.archiveVersion}` : ''}</span>
-        <button className="btn sm" onClick={() => {
-          const k = window.prompt('New top-level key:')
-          if (!k) return
-          const v = window.prompt('Value (leave empty for a block):') ?? ''
-          onEdit([{ op: 'add', parent: '', key: k, ...(v === '' ? {} : { value: coerce(v) }) }])
-        }}><Plus size={12} /> Add key</button>
+        <button className="btn sm" onClick={() => setAdding({ parent: '', label: '' })}><Plus size={12} /> Add key</button>
       </div>
       <ul className={styles.tree}>{renderNodes(entity.tree.root, '', 0)}</ul>
       {picker && (
         <AssetPicker kind={picker.kind} value={picker.value} fieldKey={picker.key}
                      onPick={(v) => onEdit([{ op: 'set', path: picker.path, value: v }])} onClose={() => setPicker(null)} />
+      )}
+      {adding && (
+        <PromptDialog
+          title={adding.label ? `Add key inside ${adding.label}` : 'Add top-level key'} submitLabel="Add" busy={busy}
+          fields={[
+            { name: 'key', label: 'Key', placeholder: 'e.g. MaxHullPoints or Weapon', mono: true, required: true,
+              validate: (v) => (KEY_RE.test(v.trim()) ? null : 'letters, digits and _ only (optionally :index)') },
+            { name: 'value', label: 'Value', placeholder: 'leave empty to add a block', mono: true,
+              hint: 'Numbers and TRUE / FALSE are typed automatically; anything else is written as a quoted string.' },
+          ]}
+          preview={(v) => v.key.trim() ? `${v.key.trim()}${v.value.trim() === '' ? '' : ' ' + previewToken(v.value.trim())}` : null}
+          onSubmit={(v) => { onEdit([{ op: 'add', parent: adding.parent, key: v.key, ...(v.value === '' ? {} : { value: coerce(v.value) }) }]); setAdding(null) }}
+          onClose={() => setAdding(null)}
+        />
+      )}
+      {removing && (
+        <ConfirmDialog title="Remove block" confirmLabel="Remove" danger onCancel={() => setRemoving(null)}
+                       onConfirm={() => { onEdit([{ op: 'remove', path: removing.path }]); setRemoving(null) }}>
+          <p>Remove <code>{removing.key}</code> and its {removing.count} child value{removing.count === 1 ? '' : 's'}?</p>
+          <p className="muted">Counts such as NumWeapons are re-synced on write; Revert restores the file if needed.</p>
+        </ConfirmDialog>
       )}
     </div>
   )
@@ -89,6 +106,14 @@ function coerce(text: string): unknown {
   if (text === 'FALSE') return false
   if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text)
   return text
+}
+
+/** How the value will appear in the file, for the dialog's preview line. */
+function previewToken(text: string): string {
+  const v = coerce(text)
+  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+  if (typeof v === 'number') return String(v)
+  return `"${text}"`
 }
 
 function ValueCell({ raw, onCommit, busy }: { raw: string; onCommit: (v: unknown) => void; busy?: boolean }) {

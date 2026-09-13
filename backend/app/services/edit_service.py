@@ -21,6 +21,7 @@ from ..sins.schemas.faction import strip_faction_suffix
 from ..sins.schemas.references import STRING, classify_key
 from ..sins.writer import sync_counts, write
 from .entity_rows import build_children, populate_entity
+from .manifest_service import ManifestService
 from .validation_service import ValidationService
 
 PRIMARY_STR = "String/English.str"
@@ -148,6 +149,7 @@ class EditService:
                 dest = dest.with_name(f"{dest.stem}.{utcnow().strftime('%Y%m%d%H%M%S')}{dest.suffix}")
             shutil.move(str(path), str(dest))
             moved = str(dest)
+            ManifestService(self.db).remove(project, entity)   # otherwise the game would look for a file that is gone
         name = entity.name
         self.entities.remove(entity)
         self.db.flush()

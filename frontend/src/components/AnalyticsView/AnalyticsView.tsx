@@ -5,6 +5,7 @@ import { entitiesApi } from '@/api/entities'
 import { insightsApi } from '@/api/insights'
 import { DistributionChart } from '@/components/DistributionChart/DistributionChart'
 import { MetricTable } from '@/components/MetricTable/MetricTable'
+import { BuffSummaryTable } from '@/components/BuffSummaryTable/BuffSummaryTable'
 import { fmtNum } from '@/utils/format'
 import styles from './AnalyticsView.module.css'
 
@@ -12,7 +13,9 @@ const CATEGORIES = ['ship', 'module', 'research', 'squad']
 
 /** Two lenses: any numeric field of one entity type (distribution), and typed metric tables per category. */
 export function AnalyticsView() {
-  const [tab, setTab] = useState<'fields' | 'metrics'>('metrics')
+  const [tab, setTab] = useState<'fields' | 'metrics' | 'buffs'>('metrics')
+  const [buffHull, setBuffHull] = useState(100)
+  const [buffLevel, setBuffLevel] = useState(0)
   const [entityType, setEntityType] = useState('Frigate')
   const [path, setPath] = useState('maxSpeedLinear')
   const [groupBy, setGroupBy] = useState<'faction' | 'role'>('faction')
@@ -22,6 +25,10 @@ export function AnalyticsView() {
   const { data: catalog = [] } = useQuery({ queryKey: ['analytics', 'fields', entityType], queryFn: () => insightsApi.fieldCatalog(entityType), enabled: tab === 'fields' })
   const { data: dist } = useQuery({ queryKey: ['analytics', 'dist', entityType, path, groupBy], queryFn: () => insightsApi.distribution(entityType, path, groupBy), enabled: tab === 'fields' && !!path })
   const { data: table } = useQuery({ queryKey: ['analytics', 'metrics', category], queryFn: () => insightsApi.metricTable(category), enabled: tab === 'metrics' })
+  const { data: buffs } = useQuery({
+    queryKey: ['analytics', 'buffs', buffLevel, buffHull], placeholderData: (p) => p,
+    queryFn: () => insightsApi.buffSummary({ category: 'ship', level: buffLevel, hull: buffHull / 100 }), enabled: tab === 'buffs',
+  })
 
   const fieldOptions = useMemo(() => catalog.filter((c) => c.numericCount >= 3 && (c.max ?? 0) !== (c.min ?? 0)), [catalog])
 
@@ -31,8 +38,21 @@ export function AnalyticsView() {
         <div className={styles.tabs}>
           <button data-active={tab === 'metrics' || undefined} onClick={() => setTab('metrics')}>Metric tables</button>
           <button data-active={tab === 'fields' || undefined} onClick={() => setTab('fields')}>Field distributions</button>
+          <button data-active={tab === 'buffs' || undefined} onClick={() => setTab('buffs')} title="Ships with their own abilities applied">Buff impact</button>
         </div>
-        {tab === 'fields' ? (
+        {tab === 'buffs' ? (
+          <>
+            <label className={styles.inline} title="Buffs that trigger below a hull percentage switch on as this drops">simulated hull
+              <select value={buffHull} onChange={(e) => setBuffHull(Number(e.target.value))}>
+                {[100, 90, 75, 70, 50, 40, 25, 20, 10].map((h) => <option key={h} value={h}>{h}%</option>)}
+              </select>
+            </label>
+            <label className={styles.inline}>ability level
+              <select value={buffLevel} onChange={(e) => setBuffLevel(Number(e.target.value))}>{[0, 1, 2, 3].map((l) => <option key={l} value={l}>{l}</option>)}</select>
+            </label>
+            <span className="muted">Metric tables stay unbuffed; this is the same fleet with each ship's own self-buffs applied.</span>
+          </>
+        ) : tab === 'fields' ? (
           <>
             <select value={entityType} onChange={(e) => { setEntityType(e.target.value); setPath('') }}>
               {types.map((t) => <option key={t.entityType} value={t.entityType}>{t.entityType} ({t.count})</option>)}
@@ -48,7 +68,7 @@ export function AnalyticsView() {
         ) : (
           <>
             <select value={category} onChange={(e) => setCategory(e.target.value)}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select>
-            <a className="btn sm" href={insightsApi.csvUrl(category === 'ship' ? 'Frigate' : category === 'module' ? 'PlanetModuleStandard' : category === 'research' ? 'ResearchSubject' : 'Squad')} download>
+            <a className="btn sm" href={insightsApi.metricsCsvUrl(category)} download={`${category}-metrics.csv`} title="Download this table as CSV">
               <Download size={12} /> CSV
             </a>
           </>
@@ -72,6 +92,8 @@ export function AnalyticsView() {
         )}
         {tab === 'fields' && !dist && <p className={styles.hint}>Pick an entity type and a numeric field.</p>}
         {tab === 'metrics' && table && <MetricTable table={table} />}
+        {tab === 'buffs' && buffs && <BuffSummaryTable data={buffs} />}
+        {tab === 'buffs' && !buffs && <p className={styles.hint}>Loading…</p>}
       </div>
     </div>
   )

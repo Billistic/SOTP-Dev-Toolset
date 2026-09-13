@@ -7,6 +7,7 @@ import { useStringEditorStore } from '@/store/useStringEditorStore'
 import { toast } from '@/store/useToastStore'
 import { StringChangesPanel } from '@/components/StringChangesPanel/StringChangesPanel'
 import type { GameString } from '@/types/api'
+import { PromptDialog } from '@/components/PromptDialog/PromptDialog'
 import styles from './StringsView.module.css'
 
 /** Localisation table: search, inline edit, add / remove IDs, review the delta against disk, write English.str. */
@@ -43,10 +44,7 @@ export function StringsView() {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const add = () => {
-    const id = window.prompt('New string ID:')?.trim()
-    if (id) openString(id, true)
-  }
+  const [adding, setAdding] = useState(false)
 
   return (
     <div className={styles.root}>
@@ -65,7 +63,7 @@ export function StringsView() {
           </>
         )}
         <span className={styles.spacer} />
-        <button className="btn sm" onClick={add}><Plus size={12} /> Add string</button>
+        <button className="btn sm" onClick={() => setAdding(true)}><Plus size={12} /> Add string</button>
         <button className="btn sm primary" onClick={() => write.mutate()} disabled={write.isPending || changeCount === 0} title={changeCount ? `Write ${changeCount} change(s) to String/English.str` : 'Nothing to write'}>
           <Save size={12} /> Write English.str
         </button>
@@ -82,6 +80,13 @@ export function StringsView() {
           </table>
         )}
       </div>
+      {adding && (
+        <PromptDialog title="New string" submitLabel="Create"
+                      fields={[{ name: 'id', label: 'String ID', placeholder: 'e.g. Frigate_UNSC_Able_Name', mono: true, required: true,
+                                 validate: (v) => (/^[A-Za-z0-9_\-.:]+$/.test(v.trim()) ? null : 'letters, digits, _ - . : only'),
+                                 hint: 'The text is entered next; the entry is written on the next "Write English.str".' }]}
+                      onSubmit={(v) => { setAdding(false); openString(v.id, true) }} onClose={() => setAdding(false)} />
+      )}
     </div>
   )
 }

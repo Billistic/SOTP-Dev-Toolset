@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Save, Trash2, Undo2, Users } from 'lucide-react'
+import { Copy, ListPlus, Save, Trash2, Undo2, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { entitiesApi } from '@/api/entities'
 import { useEntity } from '@/hooks/useEntity'
@@ -12,6 +12,7 @@ import { findNode } from '@/utils/tree'
 import { RawEditor } from '@/components/RawEditor/RawEditor'
 import { ReferencesPanel } from '@/components/ReferencesPanel/ReferencesPanel'
 import { PeerPanel } from '@/components/PeerPanel/PeerPanel'
+import { BuffImpactPanel } from '@/components/BuffImpactPanel/BuffImpactPanel'
 import { EmptyState } from '@/components/EmptyState/EmptyState'
 import { NewEntityDialog } from '@/components/NewEntityDialog/NewEntityDialog'
 import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog'
@@ -20,10 +21,11 @@ import styles from './EntityEditor.module.css'
 const MODES: { id: EditorMode; label: string }[] = [
   { id: 'form', label: 'Form' }, { id: 'tree', label: 'Tree' }, { id: 'weapons', label: 'Weapons' },
   { id: 'raw', label: 'Raw' }, { id: 'references', label: 'References' }, { id: 'peers', label: 'Peers' },
+  { id: 'buffs', label: 'Buff impact' },
 ]
 
 export function EntityEditor({ name }: { name: string }) {
-  const { entity, isLoading, error, edit, revert, write, remove } = useEntity(name)
+  const { entity, isLoading, error, edit, revert, write, remove, setManifest } = useEntity(name)
   const mode = useUiStore((s) => s.editorMode)
   const setMode = useUiStore((s) => s.setEditorMode)
   const [dialog, setDialog] = useState<null | 'duplicate' | 'delete'>(null)
@@ -34,6 +36,9 @@ export function EntityEditor({ name }: { name: string }) {
 
   const hasWeapons = entity.weapons.length > 0 || !!findNode(entity.tree.root, 'NumWeapons')   // weaponless ships can still gain weapons
   const playerList = [...new Set((players ?? []).map((p) => p.player.replace(/^Player_/, '')))]
+  const abilities = (entity.typed?.abilities as string[] | undefined) ?? []
+  const hasBuffs = entity.category === 'ship' || abilities.length > 0
+  const notListed = !entity.sourceMissing && entity.diagnostics.some((d) => d.code === 'NOT_IN_MANIFEST')
 
   return (
     <div className={styles.root}>
@@ -46,6 +51,12 @@ export function EntityEditor({ name }: { name: string }) {
           {entity.role && <span className={styles.chip}>{entity.role}</span>}
           {entity.isDirty && <span className={styles.dirty}>unsaved</span>}
           {entity.sourceMissing && <span className={styles.missing}>not on disk</span>}
+          {notListed && (
+            <span className={styles.warnChip} title="The file exists but entity.manifest does not list it, so the game will not load it">
+              not in manifest
+              <button type="button" onClick={() => setManifest.mutate(true)} disabled={setManifest.isPending} title="Add its line to entity.manifest"><ListPlus size={12} /> add</button>
+            </span>
+          )}
         </div>
         <div className={styles.meta}>
           {entity.displayName && <span className={styles.display}>“{entity.displayName}”</span>}
@@ -67,7 +78,7 @@ export function EntityEditor({ name }: { name: string }) {
           <p>Remove <code>{entity.name}</code> from the project?</p>
           {entity.sourceMissing
             ? <p className="muted">It has never been written, so nothing on disk changes.</p>
-            : <p className="muted">Its file is moved to <code>.sotp-trash/</code> inside the mod folder, not destroyed. Write the manifest afterwards so the game stops looking for it.</p>}
+            : <p className="muted">Its file is moved to <code>.sotp-trash/</code> inside the mod folder, not destroyed, and its <code>entity.manifest</code> line is removed.</p>}
           <p className="muted">Entities that reference it will get missing-link diagnostics.</p>
         </ConfirmDialog>
       )}
@@ -75,8 +86,8 @@ export function EntityEditor({ name }: { name: string }) {
       <nav className={styles.modes} role="tablist">
         {MODES.map((m) => (
           <button key={m.id} role="tab" aria-selected={mode === m.id} className={styles.mode} data-active={mode === m.id || undefined}
-                  disabled={m.id === 'weapons' && !hasWeapons} onClick={() => setMode(m.id)}>
-            {m.label}{m.id === 'weapons' && hasWeapons ? ` (${entity.weapons.length})` : ''}
+                  disabled={(m.id === 'weapons' && !hasWeapons) || (m.id === 'buffs' && !hasBuffs)} onClick={() => setMode(m.id)}>
+            {m.label}{m.id === 'weapons' && hasWeapons ? ` (${entity.weapons.length})` : ''}{m.id === 'buffs' && abilities.length ? ` (${abilities.length})` : ''}
           </button>
         ))}
       </nav>
@@ -88,6 +99,7 @@ export function EntityEditor({ name }: { name: string }) {
         {mode === 'raw' && <RawEditor name={entity.name} diagnostics={entity.diagnostics} />}
         {mode === 'references' && <ReferencesPanel name={entity.name} />}
         {mode === 'peers' && <PeerPanel name={entity.name} />}
+        {mode === 'buffs' && <BuffImpactPanel name={entity.name} />}
       </div>
     </div>
   )

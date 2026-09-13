@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, FolderOpen, RefreshCw, Save } from 'lucide-react'
+import { Download, FolderOpen, ListChecks, RefreshCw, Save } from 'lucide-react'
 import { projectsApi } from '@/api/projects'
 import { insightsApi } from '@/api/insights'
 import { useProject } from '@/hooks/useProject'
@@ -33,9 +33,14 @@ export function ProjectView() {
     onSuccess: (r) => { toast.success(`Wrote ${r.written.length} file(s)`); qc.invalidateQueries() },
     onError: (e: Error) => toast.error(e.message),
   })
+  const { data: manifest } = useQuery({ queryKey: ['manifest'], queryFn: insightsApi.manifestStatus, enabled: !!project, retry: false })
   const writeManifest = useMutation({
     mutationFn: () => insightsApi.writeManifest(),
-    onSuccess: (r) => { toast.success(`Wrote ${r.written}`); qc.invalidateQueries({ queryKey: ['diagnostics'] }) },
+    onSuccess: (r) => {
+      const n = r.added.length + r.removed.length
+      toast[n ? 'success' : 'info'](n ? `entity.manifest: +${r.added.length} / -${r.removed.length} (${r.count} entries)` : 'entity.manifest already in step')
+      qc.invalidateQueries({ queryKey: ['diagnostics'] }); qc.invalidateQueries({ queryKey: ['manifest'] })
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
@@ -77,7 +82,27 @@ export function ProjectView() {
           <p className={styles.hint}>Edits are kept in the database until written. Writing preserves the original bytes of every untouched line.</p>
           <div className={styles.actions}>
             <button className="btn" onClick={() => writeDirty.mutate()} disabled={writeDirty.isPending}><Download size={14} /> Write all unsaved entities</button>
-            <button className="btn" onClick={() => { if (window.confirm('Regenerate entity.manifest from every entity in the database?')) writeManifest.mutate() }}>Regenerate entity.manifest</button>
+          </div>
+        </section>
+      )}
+
+      {project && (
+        <section className={styles.card}>
+          <h3 className={styles.title}>entity.manifest</h3>
+          <p className={styles.hint}>
+            The game's load list. It is kept in step automatically: a new entity's first write adds its line, deleting an entity removes it.
+            Sync adds any tool-written file that is still missing{manifest?.vanillaIndexed ? ' and drops entries with no file in the mod or the base game' : ''}; hand-made entries are never touched.
+          </p>
+          {manifest && (
+            <div className={styles.stats}>
+              <div><strong>{manifest.count}</strong><span>listed</span></div>
+              <div><strong style={{ color: manifest.unlistedWritten.length ? 'var(--warning)' : undefined }}>{manifest.unlistedWritten.length}</strong><span>written, not listed</span></div>
+              <div><strong>{manifest.unlisted.length}</strong><span>on disk, not listed</span></div>
+              <div><strong style={{ color: manifest.missing.length && manifest.vanillaIndexed ? 'var(--error)' : undefined }}>{manifest.missing.length}</strong><span>{manifest.vanillaIndexed ? 'listed, no file' : 'listed, not in mod'}</span></div>
+            </div>
+          )}
+          <div className={styles.actions}>
+            <button className="btn" onClick={() => writeManifest.mutate()} disabled={writeManifest.isPending}><ListChecks size={14} /> Sync entity.manifest</button>
           </div>
         </section>
       )}

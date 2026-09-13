@@ -17,6 +17,9 @@
 .chip { font-size: var(--font-size-sm); padding: 1px 7px; border-radius: 10px; background: var(--bg-elevated); color: var(--text-secondary); }
 .dirty { font-size: var(--font-size-sm); padding: 1px 7px; border-radius: 10px; background: var(--modified); color: var(--text-inverse); font-weight: 600; }
 .missing { font-size: var(--font-size-sm); padding: 1px 7px; border-radius: 10px; background: var(--error); color: white; }
+.warnChip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-size-sm); padding: 1px 4px 1px 7px; border-radius: 10px; background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
+.warnChip button { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 8px; background: var(--warning); color: var(--text-inverse); font-size: 11px; font-weight: 600; }
+.warnChip button:hover:not(:disabled) { filter: brightness(1.1); }
 
 .meta { grid-area: meta; display: flex; gap: 12px; align-items: center; font-size: var(--font-size-sm); flex-wrap: wrap; }
 .display { color: var(--text-primary); font-style: italic; }

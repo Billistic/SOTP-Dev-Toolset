@@ -43,7 +43,8 @@ anything written goes to a temp output root.
 
 The tool also ships as a windowed desktop app: a **frameless** native WebView2 window (`desktop/launcher.py`)
 hosting the built UI - the React `TitleBar` draws the caption, drag region and minimise / maximise / close
-buttons through pywebview's JS bridge (`window.pywebview.api`) - with the FastAPI backend running inside the
+buttons, and `WindowEdges` provides the resize handles (pointer deltas -> `SetWindowPos`, since a frameless
+form has no border of its own), all through pywebview's JS bridge (`window.pywebview.api`) - with the FastAPI backend running inside the
 same process on a free local port. The app icon is generated from `desktop/brand/emblem.svg` by
 `desktop/make_icon.py` (emblem inverted on a dark tile, rasterised with headless Edge). User data lives in
 `%LOCALAPPDATA%\SOTP Dev Env` (database, `.env`, `launcher.log`, window storage), so reinstalling keeps the
@@ -190,10 +191,28 @@ Block-level edit ops behind this (usable from `POST /api/entities/{name}/edits` 
 - **New** (entity tree toolbar) or **Duplicate** (editor header) copies an existing entity of the chosen type
   under a new name. "Give it its own name / description strings" points `NameStringID` / `DescriptionStringID`
   at `<Name-without-faction-tag>_Name` / `_Desc` and creates placeholder strings for them.
-- The copy exists only in the project database until you press **Write**; write the manifest from Project
-  settings so the game loads it (the manifest writer keeps the file's existing order and appends new entries).
+- The copy exists only in the project database until you press **Write**. The first write of a brand-new
+  file also appends its `entityName "..."` line to `entity.manifest` (the game's load list) so it actually loads.
 - **Delete** (bin icon) removes the entity from the project. A file already on disk is moved to
-  `<mod>/.sotp-trash/GameInfo/` rather than destroyed; entities that referenced it get `MISSING_ENTITY`.
+  `<mod>/.sotp-trash/GameInfo/` rather than destroyed and its manifest line is removed; entities that
+  referenced it get `MISSING_ENTITY`.
+
+### entity.manifest
+
+Only the `.entity` files named in `entity.manifest` are read from `GameInfo/`; anything listed but absent falls
+through to the base game, and files on disk that are not listed are simply ignored (the mod uses both on
+purpose: 60-odd vanilla fall-throughs, 160-odd parked `OLD_*`-style files). `services/manifest_service.py`
+therefore edits the file in place - same order, same CRLF line endings, count line recomputed - and never
+drops or adds anything the tool did not write itself:
+
+- first write of a new entity -> line appended; delete -> line removed;
+- **Project -> entity.manifest -> Sync** adds tool-written files that are still missing and, only when a
+  base-game root is indexed, drops entries that neither the mod nor the base game can supply;
+- an entity whose file exists but is not listed shows a **not in manifest / add** chip in its header
+  (`PUT /api/entities/{name}/manifest`).
+
+`brush.manifest`, `galaxy.manifest` and `skybox.manifest` list file types the tool does not create, so they
+are left alone.
 
 ### Picking references instead of typing them
 
@@ -222,7 +241,7 @@ on every reference leaf (`refKinds` in the entity detail), so weapon sounds and 
 | Code | Meaning |
 |---|---|
 | `MISSING_<KIND>` (`MISSING_ENTITY`, `MISSING_STRING`, `MISSING_MESH`, `MISSING_BRUSH`, `MISSING_PARTICLE`, `MISSING_SOUND`, …) | A field points at something that is not in the mod (nor the base game, if indexed). |
-| `MANIFEST_MISSING_FILE` / `NOT_IN_MANIFEST` / `MANIFEST_DUPLICATE` | `entity.manifest` and `GameInfo/` disagree. |
+| `MANIFEST_MISSING_FILE` / `NOT_IN_MANIFEST` / `MANIFEST_DUPLICATE` / `MANIFEST_MALFORMED` | `entity.manifest` and `GameInfo/` disagree, or a manifest line has junk after the closing quote. |
 | `COUNT_MISMATCH` | A `numX` / `xCount` key does not match the number of items that follow it. |
 | `DUPLICATE_STRING` / `UNUSED_STRING` / `VANILLA_STRING` | String-table hygiene. |
 | `PLAYER_MISSING_MEMBER` / `PLAYER_DUPLICATE_MEMBER` / `UNREACHABLE_ENTITY` | Player build lists vs. what actually exists. |
@@ -241,11 +260,32 @@ the report lists the **levers** — which underlying fields, moved by how much, 
 peer median. Treat these as starting points, not prescriptions: `ARMOR_WEIGHT` in `analytics_service.py` is a
 tunable heuristic, and placeholder/flagship-only units are excluded from the candidate set.
 
+### Buff impact (abilities applied)
+
+The metric tables always show file values. **Buff impact** (a tab on every ship, and a fleet-wide table under
+Analytics) is the "abilities on" lens beside them: `services/buff_service.py` follows
+`ship -> ability:N -> Ability -> buffType -> Buff -> nested buffs`, reads each buff's `entityModifier`
+blocks per level, and re-derives the typed metrics with the chosen buffs applied.
+
+- Modifier values are the engine's fractions (`WeaponCooldown 0.25` = +25 % cooldown); same-type modifiers
+  from several active buffs are summed, then applied. `WeaponDamage` / `WeaponCooldown` scale every DPS
+  figure, `MaxHullPoints` / `MaxShieldPoints` / `ArmorPointsAdjustment` re-derive EHP, and
+  `DamageAsDamageTargetFromForward` gives an `ehp_frontal` figure (all fire from the front). Types not in
+  `MODIFIERS` are listed but not applied, so nothing disappears silently.
+- Buffs applied to *targets* are shown greyed out (they change other units); self / spawner buffs can be
+  toggled. **Simulated hull** switches on buffs whose `IfOwnerHasHullLessThanPerc` condition holds - the
+  mod's `Ability_None_CombatPassive` chain, for example, adds +25 % cooldown at each of 75 / 50 / 25 % hull
+  and takes 35 % less damage from the front at all times.
+- Abilities that are not in the mod (inherited from the base game) are flagged; index a vanilla root to
+  follow them.
+
 ## Notable findings in the current mod
 
 Produced by the first ingest of `sotp-rebuild-master` — worth checking in the mod itself:
 
 - 61 `entity.manifest` entries point at files that do not exist; 44 entity references are unresolved.
+- `entity.manifest` line 713 carries a stray backtick after the closing quote
+  (`entityName "BuffNeutralCapturableEntity.entity"\``); the tool tolerates it and reports `MANIFEST_MALFORMED`.
 - 28 research subjects collide on the same field/tier/slot.
 - `Research_UNSC_Combat_Epoch_Unlock_Stan` is defined twice (manifest, player list and strings).
 - `English.str` declares `NumStrings 889` but contains 890.

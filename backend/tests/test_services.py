@@ -52,13 +52,32 @@ def test_write_to_output_root_preserves_untouched_bytes(db, gameinfo):
     assert not (Path(project.mod_root) / "GameInfo" / f"{name}.entity").read_bytes() == written
 
 
-def test_write_manifest_lists_every_entity(db):
+def test_manifest_sync_is_non_destructive(db, mod_root):
+    """Sync never rewrites hand-made entries: nothing the tool did not write is added or dropped."""
     session, project, out = db
-    path = ExportService(session).write_manifest(project)
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "TXT"
-    count = int(lines[1].split()[1])
-    assert count == len(lines) - 2 == len(EntityDAO(session).all_for_project(project.id))
+    from app.services.manifest_service import EntityManifest, ManifestService
+    original = (mod_root / "entity.manifest").read_bytes()
+    result = ExportService(session).write_manifest(project)
+    assert result["added"] == [] and result["removed"] == []          # no vanilla root: never removes
+    assert result["count"] == len(EntityManifest.load(mod_root).names())
+    assert (mod_root / "entity.manifest").read_bytes() == original    # mod copy untouched (output root project)
+    status = ManifestService(session).status(project)
+    assert status["count"] == result["count"] and "OLD_PlanetWormhole" in status["unlisted"]
+
+
+def test_manifest_file_edits_preserve_bytes(tmp_path):
+    from app.services.manifest_service import EntityManifest
+    text = 'TXT\r\nentityNameCount 2\r\nentityName "A.entity"\r\n  entityName "B.entity"\r\n'
+    (tmp_path / "entity.manifest").write_bytes(text.encode())
+    m = EntityManifest.load(tmp_path)
+    assert m.names() == ["A.entity", "B.entity"] and m.has("b.ENTITY")
+    assert m.add("C.entity") and not m.add("c.entity")
+    assert m.text() == 'TXT\r\nentityNameCount 3\r\nentityName "A.entity"\r\n  entityName "B.entity"\r\n  entityName "C.entity"\r\n'
+    assert m.remove("A.entity") and not m.remove("A.entity")
+    assert m.text().startswith("TXT\r\nentityNameCount 2\r\n  entityName \"B.entity\"")
+    empty = EntityManifest("")
+    empty.add("X.entity")
+    assert empty.text() == 'TXT\nentityNameCount 1\nentityName "X.entity"\n'
 
 
 def test_balance_excludes_placeholders_and_flagship_only_units(db):
@@ -103,12 +122,23 @@ def test_create_from_template_and_delete(db):
     assert doc.scalar("NameStringID") == "Frigate_UNSC_Zulu_Name"
     assert doc.scalar("DescriptionStringID") == "Frigate_UNSC_Zulu_Desc"
     assert 'DescriptionStringID "Frigate_UNSC_Zulu_Desc"' in svc.render(new)
-    # manifest written to the output root lists it, keeps original order and drops nothing else
-    path = ExportService(session).write_manifest(project)
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert 'entityName "Frigate_UNSC_Zulu_Cole.entity"' in lines
+    # first write of a brand-new file registers it in the (output root's) manifest: appended, order + CRLF kept
+    from app.services.manifest_service import ManifestService
+    ExportService(session).write_entity(project, new)
+    session.commit()
+    raw = (out / "entity.manifest").read_bytes()
+    lines = raw.decode().split("\r\n")
+    assert lines[-2] == 'entityName "Frigate_UNSC_Zulu_Cole.entity"' and lines[-1] == ""
     assert lines[2] == 'entityName "BuffUNSCEclipseLaserDazzling.entity"'
-    # delete: no file on disk, so nothing is moved; row is gone
+    assert int(lines[1].split()[1]) == len(lines) - 3   # count line recomputed
+    assert 'entityName "BuffNeutralCapturableEntity.entity"`' in lines   # the malformed line is kept verbatim
+    assert ManifestService(session).listed(project, new)
+    ExportService(session).write_entity(project, new)   # second write: already listed, manifest untouched
+    assert (out / "entity.manifest").read_bytes() == raw
+    assert ManifestService(session).remove(project, new) and not ManifestService(session).listed(project, new)
+    (out / "GameInfo" / "Frigate_UNSC_Zulu_Cole.entity").unlink()
+    new.source_missing = True
+    # delete: no file in the mod root, so nothing is moved; row is gone
     result = svc.delete(project, new)
     assert result == {"deleted": "Frigate_UNSC_Zulu_Cole", "movedTo": None}
     assert dao.by_name(project.id, "Frigate_UNSC_Zulu_Cole") is None
@@ -170,3 +200,27 @@ def test_weapon_block_ops_clone_move_insert(db):
     assert len(entity.weapons) == before + 2          # weapon rows re-derived
     svc.revert(project, entity)
     assert len(entity.weapons) == before and not entity.is_dirty
+
+
+def test_buff_impact_follows_conditional_chain(db):
+    """CombatPassive: -35% frontal damage always; +25% cooldown per hull threshold crossed (75/50/25%)."""
+    session, project, out = db
+    from app.services.buff_service import BuffService
+    entity = EntityDAO(session).by_name(project.id, "Capital_COV_Avenar_Regr")
+    svc = BuffService(session)
+    full = svc.impact(project, entity, hull=1.0)
+    assert full["totals"] == {"DamageAsDamageTargetFromForward": -0.35}
+    m = {x["metric"]: x for x in full["metrics"]}
+    assert m["dps_total"]["buffed"] == m["dps_total"]["base"]
+    assert round(m["ehp_frontal"]["buffed"] / m["ehp"]["base"], 4) == round(1 / 0.65, 4)
+    hurt = svc.impact(project, entity, hull=0.4)
+    assert hurt["totals"]["WeaponCooldown"] == 0.5
+    m2 = {x["metric"]: x for x in hurt["metrics"]}
+    assert round(m2["dps_total"]["buffed"], 3) == round(m["dps_total"]["base"] / 1.5, 3)
+    names = [b["name"] for b in hurt["chain"]]
+    assert names.index("Buff_None_CombatDamage25") < names.index("Buff_None_CombatDamage50")
+    # explicit selection overrides the hull simulation
+    forced = svc.impact(project, entity, active={"Ability_None_CombatPassive/Buff_None_CombatPassive"})
+    assert forced["totals"] == {"DamageAsDamageTargetFromForward": -0.35} and not forced["auto"]
+    rows = svc.summary(project, "ship", hull=0.4)["rows"]
+    assert any(r["name"] == entity.name and r["dps_total_pct"] < 0 for r in rows)

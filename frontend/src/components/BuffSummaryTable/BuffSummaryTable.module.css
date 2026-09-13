@@ -1,0 +1,26 @@
+.root { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--font-size-sm); }
+.filters input[type='search'] { width: 200px; }
+.check { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); cursor: pointer; }
+
+.scroller { overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius); }
+.table { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+.table th { position: sticky; top: 0; background: var(--bg-elevated); text-align: left; padding: 5px 8px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border-default); white-space: nowrap; z-index: 1; }
+.table thead tr:nth-child(2) th { top: 27px; font-weight: 400; color: var(--text-muted); font-size: 11px; }
+.group { text-align: center !important; border-left: 1px solid var(--border-subtle); }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--text-primary); }
+.table td { padding: 4px 8px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+.table tbody tr:hover td { background: var(--bg-hover); }
+.num { text-align: right; font-family: var(--font-mono); }
+td[data-changed] { color: var(--text-primary); font-weight: 600; }
+td[data-sign='pos'] { color: var(--success); }
+td[data-sign='neg'] { color: var(--error); }
+
+.link { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.link:hover { color: var(--accent); text-decoration: underline; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.abilities { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.ab { display: inline-block; font-size: 10.5px; padding: 0 6px; border-radius: 8px; background: var(--bg-elevated); color: var(--text-secondary); margin-right: 4px; border: 1px solid var(--border-subtle); }
+.ab[data-missing] { color: var(--text-muted); text-decoration: line-through dotted; }
+.ab[data-warn] { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, transparent); }

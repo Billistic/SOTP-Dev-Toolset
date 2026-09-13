@@ -39,7 +39,7 @@ def configure_environment(d: Path) -> None:
     os.environ.setdefault("SOTP_UI_DIR", str(ui))
     if not FROZEN:   # dev run: import the backend package from the checkout
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-    logging.basicConfig(filename=d / "launcher.log", level=logging.INFO,
+    logging.basicConfig(filename=d / "launcher.log", level=logging.DEBUG if "--devtools" in sys.argv else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
@@ -89,9 +89,51 @@ class WindowApi:
     def close(self) -> None:
         self._window.destroy()
 
+    # frameless forms have no border to grab, so the page's edge zones drive the resize: begin() snapshots
+    # the window rect, drag() applies pointer deltas (physical px) with SetWindowPos, honouring the min size
+    MIN_W, MIN_H = 1000, 640   # logical px, matches create_window(min_size=...)
+
+    def begin_resize(self, edge: str) -> bool:
+        form = getattr(self._window, "native", None)
+        if form is None or self._maximized:
+            return False
+        import ctypes
+        from ctypes import wintypes
+        rect = wintypes.RECT()
+        ctypes.windll.user32.GetWindowRect(int(form.Handle.ToInt64()), ctypes.byref(rect))
+        self._resize = (edge, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+        logging.getLogger("launcher").info("begin_resize %s %s", edge, self._resize[1:])
+        return True
+
+    def drag_resize(self, dx: float, dy: float, scale: float = 1.0) -> None:
+        if not getattr(self, "_resize", None):
+            return
+        import ctypes
+        edge, x0, y0, w0, h0 = self._resize
+        min_w, min_h = int(self.MIN_W * scale), int(self.MIN_H * scale)
+        x, y, w, h = x0, y0, w0, h0
+        dx, dy = int(dx), int(dy)
+        if "right" in edge:
+            w = max(min_w, w0 + dx)
+        if "left" in edge:
+            w = max(min_w, w0 - dx)
+            x = x0 + (w0 - w)
+        if "bottom" in edge:
+            h = max(min_h, h0 + dy)
+        if "top" in edge:
+            h = max(min_h, h0 - dy)
+            y = y0 + (h0 - h)
+        form = self._window.native
+        ok = ctypes.windll.user32.SetWindowPos(int(form.Handle.ToInt64()), None, x, y, w, h, 0x0004 | 0x0010)   # NOZORDER | NOACTIVATE
+        logging.getLogger("launcher").debug("drag_resize %s -> %s ok=%s", (dx, dy), (x, y, w, h), ok)
+
+    def end_resize(self) -> None:
+        self._resize = None
+
 
 def open_window(url: str, d: Path) -> None:
     import webview
+    webview.settings["ALLOW_DOWNLOADS"] = True   # pywebview cancels downloads by default; CSV exports need the Save dialog
     api = WindowApi()
     # size to the primary screen (90%, capped) and centre it; frameless windows get no help from Windows here
     try:
