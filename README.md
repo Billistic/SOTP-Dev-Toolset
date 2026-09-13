@@ -69,14 +69,6 @@ window to app size and loads the UI - one window, no taskbar flicker. Open the f
 to preview the staged timeline. `SOTP_DATA_DIR` and `SOTP_ALLOW_MULTIPLE=1` start a second, isolated instance
 for testing.
 
-### Installer look
-
-`installer.iss` uses Inno Setup's built-in dark style (`WizardStyle=modern dark`, Inno 6.6+) with the app's
-greys, plus branded bitmaps rendered from the emblem by `desktop/make_installer_art.py`
-(`desktop/installer/wizard-*.bmp` for the welcome / finish panel, `small-*.bmp` for the inner-page banner,
-one per DPI step so Inno picks a sharp one). Re-run the script after changing the emblem or the version.
-The welcome page is enabled so the panel is seen on a fresh install; upgrades skip straight to the tasks page.
-
 ### Code signing
 
 `desktop/sign.ps1` Authenticode-signs (SHA-256, RFC 3161 timestamp) the app exe, the uninstaller and the setup

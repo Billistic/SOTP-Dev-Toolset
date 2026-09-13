@@ -1,4 +1,6 @@
-.root { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 18px; text-align: center; overflow: auto; }
+/* 'safe center': centred when it fits, but when the window is shorter than the content the top (the logo)
+   stays reachable at scroll 0 instead of being pushed above the scrollable area */
+.root { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 32px 40px 40px; gap: 18px; text-align: center; overflow: auto; }
 .title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
 .v { color: var(--accent); font-weight: 400; }
 .tag { max-width: 560px; color: var(--text-secondary); }

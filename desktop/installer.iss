@@ -23,16 +23,7 @@ UninstallDisplayIcon={app}\SOTP Dev Env.exe
 OutputBaseFilename=SOTP-Dev-Env-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
-; Inno Setup 6.6+: built-in dark style (forced, to match the app), system title bar kept.
-; Branding: tall panel on the welcome / finish pages and the small banner image of the inner pages,
-; rendered from brand/emblem.svg by make_installer_art.py (one bitmap per DPI step, Inno picks the best).
-WizardStyle=modern dark
-WizardBackColor=#1a1a1a
-WizardImageBackColor=#0f0f0f
-WizardImageFile=installer\wizard-*.bmp
-WizardSmallImageFile=installer\small-*.bmp
-WizardSizePercent=105
-DisableWelcomePage=no
+WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -44,14 +35,6 @@ RestartApplications=no
 SignTool=sotp
 SignedUninstaller=yes
 #endif
-
-[Messages]
-WelcomeLabel1=Welcome to SOTP Dev Env
-WelcomeLabel2=This will install SOTP Dev Env {#AppVersion} - the Sins of the Prophets modding environment: entity, research, string and asset editing with link checking and balance analytics.%n%nYour project database and settings live in %LOCALAPPDATA%\SOTP Dev Env and survive updates and reinstalls.
-FinishedHeadingLabel=SOTP Dev Env is ready
-FinishedLabelNoIcons=Setup has finished installing SOTP Dev Env.
-FinishedLabel=Setup has finished installing SOTP Dev Env. Point it at the mod folder (the one holding GameInfo\ and entity.manifest) from Project settings the first time it opens.
-BeveledLabel=Sins of the Prophets
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
