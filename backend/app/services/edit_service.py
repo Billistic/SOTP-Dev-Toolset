@@ -21,6 +21,7 @@ from ..sins.schemas.faction import strip_faction_suffix
 from ..sins.schemas.references import STRING, classify_key
 from ..sins.writer import sync_counts, write
 from .entity_rows import build_children, populate_entity
+from .faction_service import FactionService
 from .manifest_service import ManifestService
 from .validation_service import ValidationService
 
@@ -205,6 +206,7 @@ class EditService:
         text = write(doc, "preserve")
         fresh = parse(text, entity.source_path)
         populate_entity(entity, fresh, entity.name)
+        FactionService(self.db).assign(entity.project_id, only=[entity])   # keep the player-derived faction
         if mark_dirty:
             entity.is_dirty = True
         entity.updated_at = utcnow()

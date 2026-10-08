@@ -10,7 +10,10 @@ export interface Overview {
   diagnostics: Record<string, number>
 }
 
+export interface Faction { faction: string; race: string | null; player: string; members: number }
+
 export const insightsApi = {
+  factions: () => api.get<Faction[]>('/factions'),
   overview: () => api.get<Overview>('/analytics/overview'),
   fieldCatalog: (entityType: string) => api.get<FieldCatalogEntry[]>(`/analytics/fields/${entityType}`),
   distribution: (entityType: string, path: string, groupBy = 'faction') =>

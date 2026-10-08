@@ -11,7 +11,9 @@ export const fmtNum = (v: unknown, digits = 2): string => {
 export const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`)
 
 export const factionColor = (race: string | null | undefined) =>
-  race === 'UNSC' ? 'var(--unsc)' : race === 'Covenant' ? 'var(--covenant)' : 'var(--neutral)'
+  race === 'UNSC' ? 'var(--unsc)' : race === 'Covenant' ? 'var(--covenant)'
+    : !race || race === 'Neutral' ? 'var(--neutral)'
+    : `var(--tier-${[...race].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 9})`   // other mods' races: stable tier hue
 
 export const severityColor = (s: string) =>
   s === 'error' ? 'var(--error)' : s === 'warning' ? 'var(--warning)' : 'var(--info)'

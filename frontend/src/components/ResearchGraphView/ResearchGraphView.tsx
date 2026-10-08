@@ -27,6 +27,9 @@ const ROW = 104
 const NODE_W = 180
 const TIER_COL = 250
 const MAX_TIER = 8
+// the game hides research (e.g. *_Innate subjects) at sentinel slots such as [777, 777]; anything past this is parked
+const MAX_SLOT = 40
+const offGrid = (n: GraphNode) => (n.x ?? 0) < 0 || (n.y ?? 0) < 0 || (n.x ?? 0) > MAX_SLOT || (n.y ?? 0) > MAX_SLOT
 type LayoutMode = 'tier' | 'game'
 export const tierColor = (t: number | null | undefined) => `var(--tier-${Math.min(MAX_TIER, Math.max(0, t ?? 0))})`
 const nodeTypes = { research: ResearchNode }
@@ -61,16 +64,22 @@ export function ResearchGraphView() {
     return m
   }, [graph, byId])
 
-  const { nodes: laidOut, edges, fieldCounts } = useMemo(() => {
+  const { nodes: laidOut, edges, fieldCounts, parkCol, parkedCount } = useMemo(() => {
     const counts: Record<string, number> = {}
     const research = (graph?.nodes ?? []).filter((n) => !n.unit)
     for (const n of research) counts[n.field ?? '?'] = (counts[n.field ?? '?'] ?? 0) + 1
     const visible = research.filter((n) => (n.field ?? '?') === field)
     const ids = new Set(visible.map((n) => n.id))
     const pos = layout === 'tier' ? tierPositions(visible, graph?.edges ?? []) : null
+    const parked = new Map<string, { x: number; y: number }>()
+    let parkCol = 0
+    if (!pos) {   // game layout: off-screen slots get stacked in their own column right of the real grid
+      parkCol = Math.max(-1, ...visible.filter((n) => !offGrid(n)).map((n) => n.x ?? 0)) + 2
+      visible.filter(offGrid).forEach((n, i) => { parked.set(n.id, { x: parkCol * COL, y: i * ROW }) })
+    }
     const nodes: Node<ResearchNodeData>[] = visible.map((n) => ({
       id: n.id, type: 'research',
-      position: pos?.get(n.id) ?? { x: (n.x ?? 0) * COL + (n.block ?? 0) * 20, y: (n.y ?? 0) * ROW },
+      position: pos?.get(n.id) ?? parked.get(n.id) ?? { x: (n.x ?? 0) * COL + (n.block ?? 0) * 20, y: (n.y ?? 0) * ROW },
       data: { node: n, unlocks: unlocks.get(n.id)?.length ?? 0, selected: selected === n.id },
     }))
     const edges: Edge[] = (graph?.edges ?? [])
@@ -86,7 +95,7 @@ export function ResearchGraphView() {
           markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
         }
       })
-    return { nodes, edges, fieldCounts: counts }
+    return { nodes, edges, fieldCounts: counts, parkCol, parkedCount: parked.size }
   }, [graph, field, unlocks, selected, layout, byId])
 
   // column bands. tier mode: one column per tier. game mode: the research screen's own columns, labelled by majority tier.
@@ -96,24 +105,27 @@ export function ResearchGraphView() {
       for (const n of laidOut) tiers.set(n.data.node.tier ?? 0, (tiers.get(n.data.node.tier ?? 0) ?? 0) + 1)
       const maxTier = Math.max(0, ...tiers.keys())
       const rows = Math.max(1, ...[...tiers.values()])
-      return Array.from({ length: maxTier + 1 }, (_, t) => ({ c: t, tier: t, rows, width: TIER_COL, count: tiers.get(t) ?? 0 }))
+      return Array.from({ length: maxTier + 1 }, (_, t) => ({ c: t, tier: t, rows, width: TIER_COL, count: tiers.get(t) ?? 0, label: null as string | null }))
     }
     const cols = new Map<number, { rows: number; tiers: Map<number, number> }>()
     for (const n of laidOut) {
+      if (offGrid(n.data.node)) continue
       const c = n.data.node.x ?? 0
       const entry = cols.get(c) ?? { rows: 0, tiers: new Map() }
       entry.rows = Math.max(entry.rows, (n.data.node.y ?? 0) + 1)
       if (n.data.node.tier != null) entry.tiers.set(n.data.node.tier, (entry.tiers.get(n.data.node.tier) ?? 0) + 1)
       cols.set(c, entry)
     }
-    const maxRows = Math.max(1, ...[...cols.values()].map((c) => c.rows))
+    const maxRows = Math.max(1, parkedCount, ...[...cols.values()].map((c) => c.rows))
     const maxCol = Math.max(0, ...cols.keys())
-    return Array.from({ length: maxCol + 1 }, (_, c) => {
+    const out = Array.from({ length: maxCol + 1 }, (_, c) => {
       const tiers = cols.get(c)?.tiers
       const tier = tiers && tiers.size ? [...tiers.entries()].sort((a, b) => b[1] - a[1])[0][0] : null
-      return { c, tier, rows: maxRows, width: COL, count: [...(tiers?.values() ?? [])].reduce((a, b) => a + b, 0) }
+      return { c, tier, rows: maxRows, width: COL, count: [...(tiers?.values() ?? [])].reduce((a, b) => a + b, 0), label: null as string | null }
     })
-  }, [laidOut, layout])
+    if (parkedCount) out.push({ c: parkCol, tier: null, rows: maxRows, width: COL, count: parkedCount, label: 'Off-screen slot' })
+    return out
+  }, [laidOut, layout, parkCol, parkedCount])
 
   // local copy so nodes follow the pointer; the server position wins again once the edit lands
   const [nodes, setNodes] = useState<Node<ResearchNodeData>[]>([])
@@ -132,6 +144,10 @@ export function ResearchGraphView() {
     const x = Math.max(0, Math.round((n.position.x - block * 20) / COL))
     const y = Math.max(0, Math.round(n.position.y / ROW))
     if (x === node.x && y === node.y) { setNodes(laidOut); return }
+    if (parkedCount && x >= parkCol) {   // the parking column isn't a real slot; leave hidden research where it is
+      if (!offGrid(node)) toast.error('Off-screen slots are set in the entity form (researchWindowLocation.pos)')
+      setNodes(laidOut); return
+    }
     const clash = laidOut.find((o) => o.id !== n.id && o.data.node.block === block && o.data.node.x === x && o.data.node.y === y)
     if (clash) toast.error(`Slot [${x}, ${y}] is already used by ${clash.id}; the game will overlap them`)
     placeResearch(n.id, x, y, { x: node.x ?? 0, y: node.y ?? 0 })
@@ -190,7 +206,7 @@ export function ResearchGraphView() {
                 <div key={b.c} className={styles.band} data-empty={b.count === 0 || undefined}
                      style={{ transform: `translate(${b.c * b.width - (b.width - NODE_W) / 2}px, -44px)`, width: b.width, height: b.rows * ROW + 60,
                               '--band': tierColor(b.tier) } as React.CSSProperties}>
-                  <span className={styles.bandLabel}>{b.tier != null ? `Tier ${b.tier}` : `Column ${b.c + 1}`}<span className={styles.bandCount}>{b.count}</span></span>
+                  <span className={styles.bandLabel}>{b.label ?? (b.tier != null ? `Tier ${b.tier}` : `Column ${b.c + 1}`)}<span className={styles.bandCount}>{b.count}</span></span>
                 </div>
               ))}
             </ViewportPortal>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FolderOpen, Plus, Trash2 } from 'lucide-react'
 import { childPath, isBlock, tokenKind, tokenToValue } from '@/utils/tree'
 import { isEnter, isEscape } from '@/utils/keys'
@@ -120,6 +120,7 @@ function ValueCell({ raw, onCommit, busy }: { raw: string; onCommit: (v: unknown
   const kind = tokenKind(raw)
   const initial = tokenToValue(raw)
   const [draft, setDraft] = useState(initial === null ? '' : String(initial))
+  useEffect(() => { setDraft(initial === null ? '' : String(initial)) }, [raw]) // eslint-disable-line react-hooks/exhaustive-deps -- picker / undo / server edits land here
   const dirty = draft !== String(initial)
   const commit = () => {
     if (!dirty) return

@@ -13,11 +13,18 @@ from ..services.analytics_service import METRICS, AnalyticsService
 from ..services.balance_service import BalanceService
 from ..services.buff_service import BuffService
 from ..services.export_service import ExportService
+from ..services.faction_service import FactionService
 from ..services.manifest_service import ManifestService
 from ..services.graph_service import GraphService
 from .deps import get_project
 
 router = APIRouter(tags=["insights"])
+
+
+@router.get("/factions")
+def factions(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """The project's own factions (one per Player entity), for faction pickers and colouring."""
+    return FactionService(db).factions(project.id)
 
 
 # ── analytics ───────────────────────────────────────────────────────────
