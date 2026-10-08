@@ -1,7 +1,8 @@
 """Localisation string persistence."""
 from __future__ import annotations
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, exists, func, or_, select
+from sqlalchemy.orm import aliased
 
 from ..models import GameString
 from .base import BaseDAO, search_clause
@@ -34,11 +35,23 @@ class StringDAO(BaseDAO[GameString]):
                                .order_by(GameString.source_file == PRIMARY_STR)).all()
         return dict(rows)
 
+    def primary_map(self, project_id: int) -> dict[str, str]:
+        """string ID -> English text: the reference every translation is built against (QA #14)."""
+        rows = self.db.execute(select(GameString.string_id, GameString.value).where(
+            GameString.project_id == project_id, GameString.source_file == PRIMARY_STR, GameString.is_deleted.is_(False))).all()
+        return dict(rows)
+
     def list(self, project_id: int, *, search: str | None = None, modified_only: bool = False, source_file: str | None = None,
-             too_long: bool = False, limit: int = 500, offset: int = 0) -> list[GameString]:
+             too_long: bool = False, vs_primary: str | None = None, limit: int = 500, offset: int = 0) -> list[GameString]:
+        """``vs_primary``: ``untranslated`` (same text as English.str) or ``orphan`` (ID not in English.str)."""
         stmt = self.select().where(GameString.project_id == project_id)
         if source_file:
             stmt = stmt.where(GameString.source_file == source_file)
+        if vs_primary in ("untranslated", "orphan"):
+            p = aliased(GameString)
+            ref = exists().where(p.project_id == project_id, p.source_file == PRIMARY_STR, p.is_deleted.is_(False),
+                                 p.string_id == GameString.string_id)
+            stmt = stmt.where(ref.where(p.value == GameString.value) if vs_primary == "untranslated" else ~ref)
         if too_long:
             stmt = stmt.where(func.length(GameString.value) > MAX_STRING_LEN)
         if search:
@@ -65,7 +78,33 @@ class StringDAO(BaseDAO[GameString]):
             func.sum(case((func.length(GameString.value) > MAX_STRING_LEN, 1), else_=0)),
         ).where(GameString.project_id == project_id).group_by(GameString.source_file)).all()
         out = [{"file": f, "count": int(n or 0), "changes": int(c or 0), "tooLong": int(t or 0)} for f, n, c, t in rows]
+        primary = self.primary_map(project_id)
+        if primary:   # how far each translation is from English.str
+            for r in out:
+                if r["file"] == PRIMARY_STR:
+                    continue
+                mine = dict(self.db.execute(select(GameString.string_id, GameString.value).where(
+                    GameString.project_id == project_id, GameString.source_file == r["file"], GameString.is_deleted.is_(False))).all())
+                r["missing"] = sum(1 for sid in primary if sid not in mine)
+                r["untranslated"] = sum(1 for sid, v in mine.items() if primary.get(sid) == v)
+                r["orphans"] = sum(1 for sid in mine if sid not in primary)
         return sorted(out, key=lambda r: (r["file"] != PRIMARY_STR, r["file"]))
+
+    def fill_from_primary(self, project_id: int, target: str) -> int:
+        """Add every English.str ID missing from ``target`` to it, pre-filled with the English text (new rows, written
+        on the next write of that file). Also how a new language file is started."""
+        if target == PRIMARY_STR:
+            return 0
+        have = {s for (s,) in self.db.execute(select(GameString.string_id).where(
+            GameString.project_id == project_id, GameString.source_file == target))}
+        added = 0
+        for row in self.all_for_file(project_id, PRIMARY_STR):
+            if row.is_deleted or row.string_id in have:
+                continue
+            self.db.add(GameString(project_id=project_id, string_id=row.string_id, value=row.value, original_value="",
+                                   is_modified=True, is_new=True, source_file=target))
+            added += 1
+        return added
 
     def changes(self, project_id: int) -> list[GameString]:
         """Every row that differs from the .str files on disk."""

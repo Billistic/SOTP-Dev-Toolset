@@ -67,6 +67,21 @@ def test_editing_a_translation_leaves_english_alone(two_languages):
     assert '"Hello"' in (root / "String" / "English.str").read_text(encoding="utf-8")
 
 
+def test_fill_translation_from_english(two_languages):
+    session, project, root = two_languages
+    dao = StringDAO(session)
+    french = next(f for f in dao.file_summary(project.id) if f["file"] == "String/French.str")
+    assert (french["missing"], french["untranslated"], french["orphans"]) == (1, 0, 0)
+    assert dao.fill_from_primary(project.id, "String/French.str") == 1
+    session.commit()
+    assert dao.get_by_id(project.id, "Long", "String/French.str").value == LONG          # English text as placeholder
+    assert [s.string_id for s in dao.list(project.id, source_file="String/French.str", vs_primary="untranslated")] == ["Long"]
+    assert dao.fill_from_primary(project.id, "String/German.str") == 2                  # starts a new language
+    session.commit()
+    ExportService(session).write_strings(project, "String/German.str")
+    assert (root / "String" / "German.str").read_text(encoding="utf-8").startswith("TXT\nNumStrings 2")
+
+
 def test_over_long_value_is_a_warning(two_languages):
     session, project, _ = two_languages
     ValidationService(session).run(project)

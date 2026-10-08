@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..dao import AssetDAO, DiagnosticDAO, FieldDAO, StringDAO
 from ..dao.string_dao import MAX_STRING_LEN, PRIMARY_STR
+from ..services.ingest_service import LANGUAGES
 from ..db import get_db
 from ..models import Project
 from ..sins.schemas.weapons import WEAPON_FIELDS, WEAPON_SOUND_LISTS, WEAPON_TEMPLATES
@@ -53,17 +54,36 @@ class StringIn(BaseModel):
 
 @router.get("/strings")
 def list_strings(search: str | None = None, modified: bool = False, file: str | None = None, too_long: bool = False,
-                 limit: int = Query(500, le=5000), offset: int = 0,
+                 vs_primary: str | None = None, limit: int = Query(500, le=5000), offset: int = 0,
                  db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Rows of one .str file; a translation's rows carry ``reference`` (the English.str text) for side-by-side editing."""
     dao = StringDAO(db)
-    rows = dao.list(project.id, search=search, modified_only=modified, source_file=file, too_long=too_long, limit=limit, offset=offset)
-    return {"total": dao.count(project.id, file), "maxLength": MAX_STRING_LEN, "rows": [s.to_dict() for s in rows]}
+    rows = dao.list(project.id, search=search, modified_only=modified, source_file=file, too_long=too_long,
+                    vs_primary=vs_primary, limit=limit, offset=offset)
+    ref = dao.primary_map(project.id) if file and file != PRIMARY_STR else None
+    out = [{**s.to_dict(), "reference": ref.get(s.string_id)} if ref is not None else s.to_dict() for s in rows]
+    return {"total": dao.count(project.id, file), "maxLength": MAX_STRING_LEN, "rows": out}
 
 
 @router.get("/strings/files")
 def string_files(db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    """The project's .str files (English.str, French.str ...), primary first."""
-    return {"primary": PRIMARY_STR, "maxLength": MAX_STRING_LEN, "files": StringDAO(db).file_summary(project.id)}
+    """The project's .str files (English.str, French.str ...), primary first, and the languages that can be added."""
+    files = StringDAO(db).file_summary(project.id)
+    have = {f["file"].split("/")[-1].removesuffix(".str").lower() for f in files}
+    addable = sorted(lang.capitalize() for lang in LANGUAGES if lang not in have)
+    return {"primary": PRIMARY_STR, "maxLength": MAX_STRING_LEN, "files": files, "addable": addable}
+
+
+@router.post("/strings/fill")
+def fill_strings(file: str, db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Copy every English.str ID missing from ``file`` into it (English text as a placeholder to translate).
+    A file name that does not exist yet starts a new language, e.g. ``String/German.str``."""
+    lang = file.split("/")[-1].removesuffix(".str").lower()
+    if not file.startswith("String/") or not file.endswith(".str") or lang not in LANGUAGES:
+        raise HTTPException(400, f"not a localisation file the game loads: {file}")
+    added = StringDAO(db).fill_from_primary(project.id, file)
+    db.commit()
+    return {"file": file, "added": added}
 
 
 @router.get("/strings/changes")

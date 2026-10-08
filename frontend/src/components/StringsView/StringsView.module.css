@@ -37,3 +37,7 @@
 .rowBtn:hover { color: var(--error); background: var(--bg-hover); }
 
 .over { font-family: var(--font-mono); font-size: 10.5px; color: var(--warning); margin-left: 4px; }
+
+.reference { width: 38%; color: var(--text-secondary); font-size: 12px; line-height: 1.4; white-space: pre-wrap; }
+.orphan { color: var(--warning); font-style: italic; }
+.value[data-untranslated] { border-style: dashed; }

@@ -214,6 +214,7 @@ export interface GameString {
   sourceFile: string
   line: number | null
   duplicateCount: number
+  reference?: string | null        // English.str text, on rows of a translation file
 }
 
 export interface StringChanges { new: GameString[]; modified: GameString[]; deleted: GameString[] }

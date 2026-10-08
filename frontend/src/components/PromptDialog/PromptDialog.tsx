@@ -10,6 +10,7 @@ export interface PromptField {
   mono?: boolean
   initial?: string
   required?: boolean
+  options?: string[]               // render a dropdown instead of a text input
   /** Return an error message to block submission. */
   validate?: (value: string, all: Record<string, string>) => string | null
 }
@@ -27,7 +28,7 @@ interface Props {
 
 /** Small form in a modal - the replacement for window.prompt(): one or more labelled inputs, Enter submits. */
 export function PromptDialog({ title, fields, submitLabel = 'Add', busy, onSubmit, onClose, preview }: Props) {
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? ''])))
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? f.options?.[0] ?? ''])))
   const errors = Object.fromEntries(fields.map((f) => {
     const v = values[f.name] ?? ''
     if (f.required && !v.trim()) return [f.name, 'required']
@@ -55,8 +56,14 @@ export function PromptDialog({ title, fields, submitLabel = 'Add', busy, onSubmi
           return (
             <label key={f.name} className={styles.field}>
               <span className={styles.label}>{f.label}</span>
-              <input value={values[f.name]} autoFocus={i === 0} spellCheck={false} placeholder={f.placeholder} data-mono={f.mono || undefined}
-                     aria-invalid={touched && !!err} onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))} />
+              {f.options ? (
+                <select value={values[f.name]} autoFocus={i === 0} onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}>
+                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input value={values[f.name]} autoFocus={i === 0} spellCheck={false} placeholder={f.placeholder} data-mono={f.mono || undefined}
+                       aria-invalid={touched && !!err} onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))} />
+              )}
               {touched && err && err !== 'required' ? <span className={styles.err}>{err}</span> : f.hint ? <span className={styles.hint}>{f.hint}</span> : null}
             </label>
           )

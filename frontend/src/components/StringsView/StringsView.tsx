@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { GitCompareArrows, Plus, Save, Search, Trash2 } from 'lucide-react'
+import { CopyPlus, GitCompareArrows, Languages, Plus, Save, Search, Trash2 } from 'lucide-react'
 import { MAX_STRING_LEN, PRIMARY_STR, catalogApi, strFileLabel } from '@/api/catalog'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useStringEditorStore } from '@/store/useStringEditorStore'
@@ -16,6 +16,8 @@ export function StringsView() {
   const [search, setSearch] = useState('')
   const [modifiedOnly, setModifiedOnly] = useState(false)
   const [tooLongOnly, setTooLongOnly] = useState(false)
+  const [vsPrimary, setVsPrimary] = useState<'' | 'untranslated' | 'orphan'>('')
+  const [addingLang, setAddingLang] = useState(false)
   const [file, setFile] = useState(PRIMARY_STR)
   const [tab, setTab] = useState<'all' | 'changes'>('all')
   const debounced = useDebounce(search)
@@ -24,9 +26,11 @@ export function StringsView() {
   const { data: files } = useQuery({ queryKey: ['strings', 'files'], queryFn: catalogApi.stringFiles, retry: false })
   const current = files?.files.find((f) => f.file === file)
   const fileName = strFileLabel(file)
+  const translation = file !== PRIMARY_STR
   const { data, isLoading } = useQuery({
-    queryKey: ['strings', file, debounced, modifiedOnly, tooLongOnly],
-    queryFn: () => catalogApi.strings({ file, search: debounced || undefined, modified: modifiedOnly || undefined, too_long: tooLongOnly || undefined, limit: 1000 }),
+    queryKey: ['strings', file, debounced, modifiedOnly, tooLongOnly, translation ? vsPrimary : ''],
+    queryFn: () => catalogApi.strings({ file, search: debounced || undefined, modified: modifiedOnly || undefined, too_long: tooLongOnly || undefined,
+                                        vs_primary: (translation && vsPrimary) || undefined, limit: 1000 }),
     retry: false,
     enabled: tab === 'all',
   })
@@ -50,6 +54,16 @@ export function StringsView() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  // QA #14: translations are built against English.str
+  const fill = useMutation({
+    mutationFn: (target: string) => catalogApi.fillStrings(target),
+    onSuccess: (r) => {
+      setFile(r.file); setAddingLang(false); invalidate()
+      toast.success(r.added ? `Added ${r.added} string(s) to ${strFileLabel(r.file)} with the English text to translate` : `${strFileLabel(r.file)} already has every English string`)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const [adding, setAdding] = useState(false)
 
   return (
@@ -70,6 +84,13 @@ export function StringsView() {
           <>
             <div className={styles.search}><Search size={14} /><input type="search" data-bare placeholder="Search IDs and text…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
             <label className={styles.check}><input type="checkbox" checked={modifiedOnly} onChange={(e) => setModifiedOnly(e.target.checked)} /> changed only</label>
+            {translation && (
+              <select value={vsPrimary} onChange={(e) => setVsPrimary(e.target.value as typeof vsPrimary)} title="Compare with English.str">
+                <option value="">all rows</option>
+                <option value="untranslated">untranslated ({current?.untranslated ?? 0})</option>
+                <option value="orphan">not in English.str ({current?.orphans ?? 0})</option>
+              </select>
+            )}
             {(current?.tooLong ?? 0) > 0 && (
               <label className={styles.check} title={`Values longer than the ${MAX_STRING_LEN} characters Sins reads`}>
                 <input type="checkbox" checked={tooLongOnly} onChange={(e) => setTooLongOnly(e.target.checked)} /> over {MAX_STRING_LEN} chars <span className={styles.over}>{current!.tooLong}</span>
@@ -79,6 +100,15 @@ export function StringsView() {
           </>
         )}
         <span className={styles.spacer} />
+        {translation && (current?.missing ?? 0) > 0 && (
+          <button className="btn sm" onClick={() => fill.mutate(file)} disabled={fill.isPending}
+                  title={`Copy the ${current!.missing} English.str string(s) missing from ${fileName}, with the English text as a placeholder to translate`}>
+            <CopyPlus size={12} /> Fill {current!.missing} from English
+          </button>
+        )}
+        {(files?.addable.length ?? 0) > 0 && (
+          <button className="btn sm" onClick={() => setAddingLang(true)} title="Start a new localisation file from English.str"><Languages size={12} /> Add language</button>
+        )}
         <button className="btn sm" onClick={() => setAdding(true)}><Plus size={12} /> Add string</button>
         <button className="btn sm primary" onClick={() => write.mutate()} disabled={write.isPending || !current?.changes}
                 title={current?.changes ? `Write ${current.changes} change(s) to ${file}` : `Nothing to write in ${fileName}`}>
@@ -88,15 +118,21 @@ export function StringsView() {
       <div className={styles.body}>
         {tab === 'changes' ? <StringChangesPanel /> : isLoading ? <p className={styles.hint}>Loading…</p> : (
           <table className={styles.table}>
-            <thead><tr><th>ID</th><th>Value</th><th></th></tr></thead>
+            <thead><tr><th>ID</th>{translation && <th>English (reference)</th>}<th>{translation ? fileName : 'Value'}</th><th></th></tr></thead>
             <tbody>
               {data?.rows.map((s) => (
-                <Row key={s.id} s={s} onSave={(v) => save.mutate({ id: s.stringId, value: v })} onDelete={() => remove.mutate(s.stringId)} onOpen={() => openString(s.stringId, false, file)} />
+                <Row key={s.id} s={s} translation={translation} onSave={(v) => save.mutate({ id: s.stringId, value: v })} onDelete={() => remove.mutate(s.stringId)} onOpen={() => openString(s.stringId, false, file)} />
               ))}
             </tbody>
           </table>
         )}
       </div>
+      {addingLang && files && (
+        <PromptDialog title="Add language" submitLabel="Create from English" busy={fill.isPending}
+                      fields={[{ name: 'lang', label: 'Language', required: true, options: files.addable,
+                                 hint: `Creates String/<Language>.str with all ${files.files.find((f) => f.file === PRIMARY_STR)?.count ?? 0} English strings as placeholders; it is written to disk on the next "Write".` }]}
+                      onSubmit={(v) => fill.mutate(`String/${v.lang}.str`)} onClose={() => setAddingLang(false)} />
+      )}
       {adding && (
         <PromptDialog title="New string" submitLabel="Create"
                       fields={[{ name: 'id', label: 'String ID', placeholder: 'e.g. Frigate_UNSC_Able_Name', mono: true, required: true,
@@ -108,17 +144,23 @@ export function StringsView() {
   )
 }
 
-function Row({ s, onSave, onDelete, onOpen }: { s: GameString; onSave: (v: string) => void; onDelete: () => void; onOpen: () => void }) {
+function Row({ s, translation, onSave, onDelete, onOpen }: { s: GameString; translation: boolean; onSave: (v: string) => void; onDelete: () => void; onOpen: () => void }) {
   const [draft, setDraft] = useState(s.value)
   const dirty = draft !== s.value
+  const untranslated = translation && s.reference != null && draft === s.reference
   return (
     <tr data-modified={s.isModified || s.isNew || s.isDeleted || undefined} data-deleted={s.isDeleted || undefined}>
       <td className={styles.id} title={`${s.sourceFile}:${s.line ?? ''}${s.duplicateCount > 1 ? ` (defined ${s.duplicateCount}×)` : ''}`}>
         <button className={styles.idBtn} onClick={onOpen} title="Open in the string editor">{s.stringId}</button>
         {s.isNew && <span className={styles.new}>new</span>}{s.isDeleted && <span className={styles.dup}>removed</span>}{s.duplicateCount > 1 && <span className={styles.dup}>dup</span>}
       </td>
+      {translation && (
+        <td className={styles.reference}>
+          {s.reference != null ? s.reference : <span className={styles.orphan}>not in English.str</span>}
+        </td>
+      )}
       <td>
-        <textarea className={styles.value} value={draft} rows={Math.min(6, Math.max(1, Math.ceil(draft.length / 110)))} spellCheck disabled={s.isDeleted}
+        <textarea className={styles.value} data-untranslated={untranslated || undefined} value={draft} rows={Math.min(6, Math.max(1, Math.ceil(draft.length / 110)))} spellCheck disabled={s.isDeleted}
                   onChange={(e) => setDraft(e.target.value)} onBlur={() => dirty && onSave(draft)}
                   onKeyDown={(e) => { if (e.key === 'Escape') setDraft(s.value) }} data-dirty={dirty || undefined} />
         {draft.length > MAX_STRING_LEN && (

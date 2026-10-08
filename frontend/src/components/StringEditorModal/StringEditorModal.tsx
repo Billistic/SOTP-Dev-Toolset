@@ -24,6 +24,13 @@ function Editor({ stringId, isNew, file, onClose }: { stringId: string; isNew: b
     retry: false,
   })
   const missing = error instanceof ApiError && error.status === 404
+  const translation = file !== PRIMARY_STR
+  const { data: english } = useQuery({                      // QA #14: the English text to translate from
+    queryKey: ['string', stringId, PRIMARY_STR],
+    queryFn: () => catalogApi.getString(stringId, PRIMARY_STR),
+    enabled: translation,
+    retry: false,
+  })
   const [draft, setDraft] = useState('')
   useEffect(() => { if (data) setDraft(data.value) }, [data])
 
@@ -64,8 +71,15 @@ function Editor({ stringId, isNew, file, onClose }: { stringId: string; isNew: b
         <label className={styles.label}>String ID</label>
         <code className={styles.id}>{stringId}</code>
       </div>
+      {translation && (
+        <div className={styles.field}>
+          <label className={styles.label}>English (reference)
+            {english && <button type="button" className={styles.copy} onClick={() => setDraft(english.value)} title="Start from the English text">use</button>}</label>
+          <p className={styles.original}>{english ? english.value : 'not in English.str'}</p>
+        </div>
+      )}
       <div className={styles.field}>
-        <label className={styles.label} htmlFor="string-value">Value</label>
+        <label className={styles.label} htmlFor="string-value">{translation ? fileName : 'Value'}</label>
         {isLoading ? <p className="muted">Loading…</p> : (
           <textarea id="string-value" className={styles.value} rows={5} value={draft} autoFocus spellCheck
                     onChange={(e) => setDraft(e.target.value)} placeholder={missing ? `This ID has no string yet; saving creates it in ${fileName}` : ''} />
