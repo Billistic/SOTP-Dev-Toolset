@@ -90,3 +90,28 @@ def test_no_releases_yet_is_not_an_error(tmp_path, monkeypatch):
     info = svc.check(force=True)
     assert info["available"] is False and info["error"]           # network failure is reported
     assert us.parse_version("v2.10.0") > us.parse_version("2.9.9")
+
+
+def test_signature_verdict_pins_our_certificate():
+    pinned = {"DAF55CA614C0AC605B072491C8FEE55F2AA3FCE7"}
+    assert us.signature_verdict("Valid", None, pinned) == "Valid"
+    assert us.signature_verdict("UnknownError", "daf55ca614c0ac605b072491c8fee55f2aa3fce7", pinned) == "Pinned"
+    assert us.signature_verdict("UnknownError", "0" * 40, pinned) == "UnknownError"     # someone else's self-signed cert
+    assert us.signature_verdict("HashMismatch", "DAF55CA614C0AC605B072491C8FEE55F2AA3FCE7", pinned) == "HashMismatch"
+    assert us.signature_verdict("NotSigned", None, pinned) == "NotSigned"
+
+
+DEV_BUILD = sorted((Path(__file__).resolve().parents[2] / "desktop" / "dist").glob("SOTP-Dev-Env-Setup-*.exe"))
+
+
+@pytest.mark.skipif(not DEV_BUILD, reason="no locally built installer")
+def test_dev_signed_installer_is_pinned_and_tampering_is_caught(tmp_path):
+    from app.config import settings
+    status, thumb = us.authenticode_status(DEV_BUILD[-1])
+    assert us.signature_verdict(status, thumb, set(settings.update_signers)) == "Pinned"
+    bad = tmp_path / "tampered.exe"
+    data = bytearray(DEV_BUILD[-1].read_bytes())
+    data[len(data) // 2] ^= 0xFF
+    bad.write_bytes(bytes(data))
+    status, thumb = us.authenticode_status(bad)
+    assert us.signature_verdict(status, thumb, set(settings.update_signers)) not in ("Valid", "Pinned")

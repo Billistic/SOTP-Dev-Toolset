@@ -14,7 +14,7 @@ export function UpdatesCard() {
         <dt>Version</dt><dd>{info?.current ?? '\u2026'}{info && !info.supported && <span className={styles.note}> (dev server - installs only from the desktop app)</span>}</dd>
         <dt>Channel</dt><dd><a className={styles.link} href={`https://github.com/${info?.repo ?? ''}/releases`} target="_blank" rel="noreferrer">github.com/{info?.repo}</a></dd>
         <dt>Latest</dt><dd>{info?.latest ?? '\u2014'}{info?.checkedAt ? <span className={styles.note}> checked {new Date(info.checkedAt * 1000).toLocaleTimeString()}</span> : null}{info?.error && <span className={styles.err}> {info.error}</span>}</dd>
-        {status?.signature && <><dt>Signature</dt><dd>{status.signature}</dd></>}
+        {status?.signature && <><dt>Signature</dt><dd>{status.signature === 'Pinned' ? 'Verified (SOTP release certificate)' : status.signature === 'Valid' ? 'Verified' : status.signature}</dd></>}
       </dl>
       <div className={styles.actions}>
         <button className="btn sm" onClick={() => check.mutate()} disabled={check.isPending}><RefreshCw size={12} className={check.isPending ? styles.spin : undefined} /> Check for updates</button>

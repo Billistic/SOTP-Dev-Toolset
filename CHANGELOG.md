@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.4
+
+First release built and published by the release workflow; includes everything listed under 2.0.3 (QA issues #1-#5, #7, #10, #11, #13, #14).
+
+- In-app updates now install: the updater accepts installers signed by the SOTP release certificate (pinned by thumbprint, still verified against GitHub's SHA-256 and rejected if tampered), instead of requiring a commercially trusted certificate. From this version on, "Restart to update" works; installs older than 2.0.4 need this one installed by hand once.
+- Release workflow fixed (it had been rejected by GitHub since 2.0.1) and the CI build's signing step repaired.
+
 ## 2.0.3
 
 QA pass (issues #1-#5, #7, #10, #11, #13, #14).

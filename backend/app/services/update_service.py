@@ -60,10 +60,11 @@ class DownloadState:
 class UpdateService:
     """One instance per process (module-level singleton below); thread-safe enough for a single desktop user."""
 
-    def __init__(self, data_dir: Path, repo: str, *, allow_unsigned: bool = False):
+    def __init__(self, data_dir: Path, repo: str, *, allow_unsigned: bool = False, signers: tuple[str, ...] = ()):
         self.data_dir = data_dir
         self.repo = repo
         self.allow_unsigned = allow_unsigned
+        self.signers = {s.upper() for s in signers}
         self.frozen = bool(getattr(sys, "frozen", False))
         self.info = UpdateInfo()
         self.download = DownloadState()
@@ -139,9 +140,10 @@ class UpdateService:
             if self.info.sha256 and digest.lower() != self.info.sha256.lower():
                 raise ValueError("sha256 mismatch - download discarded")
             part.replace(target)
-            self.download.signature = authenticode_status(target)
-            if self.download.signature != "Valid" and not self.allow_unsigned:
-                raise ValueError(f"installer signature is {self.download.signature}; refusing to install")
+            status, thumb = authenticode_status(target)
+            self.download.signature = signature_verdict(status, thumb, self.signers)
+            if self.download.signature not in ("Valid", "Pinned") and not self.allow_unsigned:
+                raise ValueError(f"installer signature is {status} (signer {thumb or 'none'}); refusing to install")
             self.download.path = str(target)
             self.download.state = "ready"
         except Exception as exc:
@@ -178,17 +180,31 @@ class UpdateService:
             return json.load(r)
 
 
-def authenticode_status(path: Path) -> str:
-    """Windows Authenticode verdict via PowerShell: Valid, NotSigned, UnknownError (untrusted), ..."""
+def authenticode_status(path: Path) -> tuple[str, str | None]:
+    """Windows Authenticode verdict and signer thumbprint via PowerShell: (Valid | NotSigned | HashMismatch |
+    UnknownError (root not trusted) ..., thumbprint or None)."""
     if os.name != "nt":
-        return "Unsupported"
+        return "Unsupported", None
     cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-           f"(Get-AuthenticodeSignature -FilePath '{path}').Status.ToString()"]
+           f"$s = Get-AuthenticodeSignature -LiteralPath '{path}'; \"$($s.Status)|$($s.SignerCertificate.Thumbprint)\""]
+    env = {k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}   # PS7's module path breaks PS 5.1
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        return (out.stdout or "").strip() or f"Unknown({out.returncode})"
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        status, _, thumb = (out.stdout or "").strip().partition("|")
+        return status or f"Unknown({out.returncode})", thumb.strip().upper() or None
     except Exception as exc:
-        return f"Error({type(exc).__name__})"
+        return f"Error({type(exc).__name__})", None
+
+
+def signature_verdict(status: str, thumb: str | None, pinned: set[str]) -> str:
+    """Valid = chain trusted by Windows; Pinned = intact and signed by our own release certificate, whose root Windows
+    does not know (self-signed). Anything else (NotSigned, HashMismatch, other signers) is passed through and refused."""
+    if status == "Valid":
+        return "Valid"
+    if status == "UnknownError" and thumb and thumb.upper() in pinned:
+        return "Pinned"
+    return status
 
 
 _service: UpdateService | None = None
@@ -198,5 +214,6 @@ def get_update_service() -> UpdateService:
     global _service
     if _service is None:
         from ..config import settings
-        _service = UpdateService(settings.data_dir, settings.update_repo, allow_unsigned=settings.allow_unsigned_updates)
+        _service = UpdateService(settings.data_dir, settings.update_repo, allow_unsigned=settings.allow_unsigned_updates,
+                                 signers=settings.update_signers)
     return _service

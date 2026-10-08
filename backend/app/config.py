@@ -26,6 +26,10 @@ class Settings:
     ui_dir: str | None = os.getenv("SOTP_UI_DIR") or None   # built frontend to serve at "/" (desktop build)
     update_repo: str = os.getenv("SOTP_UPDATE_REPO", "Billistic/SOTP-Dev-Toolset")   # GitHub owner/repo publishing releases
     allow_unsigned_updates: bool = os.getenv("SOTP_UPDATE_ALLOW_UNSIGNED", "0") == "1"
+    # Certificates whose signature the updater accepts even when Windows does not trust their root (our self-signed
+    # release certificate). Integrity is still enforced: a tampered file reports HashMismatch, not UnknownError.
+    update_signers: tuple[str, ...] = tuple(t.strip().upper() for t in os.getenv(
+        "SOTP_UPDATE_SIGNERS", "DAF55CA614C0AC605B072491C8FEE55F2AA3FCE7").split(",") if t.strip())
 
 
 settings = Settings()
