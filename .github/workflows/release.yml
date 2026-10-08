@@ -21,6 +21,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # the secrets context is not allowed in step `if:` (GitHub rejects the whole workflow), so test a flag instead
+      HAS_SIGN_PFX: ${{ secrets.SIGN_PFX_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +44,12 @@ jobs:
           pip install -r backend/requirements.txt -r desktop/requirements-desktop.txt
           npm ci --prefix frontend
 
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") -and -not (Test-Path "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress }
+
       - name: Check the tag matches the app version
         shell: pwsh
         run: |
@@ -50,7 +59,7 @@ jobs:
           "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Restore signing certificate
-        if: ${{ secrets.SIGN_PFX_BASE64 != '' }}
+        if: ${{ env.HAS_SIGN_PFX == 'true' }}
         shell: pwsh
         env:
           SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
