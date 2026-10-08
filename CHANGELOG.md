@@ -2,7 +2,16 @@
 
 ## 2.0.3
 
-- 
+QA pass (issues #1-#5, #7, #10, #11, #13, #14).
+
+- One database per project with a project switcher (Project view: Switch / Remove / New project). Choosing a different mod folder offers a new project instead of mixing data. Existing databases are split automatically on first start (#4).
+- Factions come from each project's Player entities instead of the built-in SotP2 list; faction filters and colours follow the project (#5).
+- Research tree: game layout no longer locks up on hidden `[777, 777]` slots (they get an "Off-screen slot" column); long names wrap in the sidebar (#1, #2).
+- Tree tab fields refresh after choosing an entity, undo or other edits (#10).
+- Strings: per-file view and editing (English.str, French.str...), fixing edits that could land on another language; 256-character warning with counter, filter and STRING_TOO_LONG diagnostic (#11, #13).
+- Translation workflow against English.str: side-by-side reference, untranslated / not-in-English filters, Fill from English, Add language (#14).
+- Balance: exclude dev / debug / empty / AI-driver entities from the statistics, with an Excluded tab to restore them (#3).
+- Desktop window: Windows Snap (drag to edges, Win+arrow, Win+Z, FancyZones), maximise within the work area, per-monitor display scaling, correct launch position at 125 % and above (#7).
 
 ## 2.0.2
 
