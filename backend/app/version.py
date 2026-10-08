@@ -1,2 +1,2 @@
 """Single source of truth for the app version; desktop/bump_version.py rewrites it."""
-__version__ = "2.0.2"
+__version__ = "2.0.3"

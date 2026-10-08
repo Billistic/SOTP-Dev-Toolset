@@ -37,6 +37,7 @@ interface UiState {
   openEntity: (name: string) => void
   openView: (view: Exclude<ActivityView, 'explorer'>) => void
   closeTab: (id: string) => void
+  closeEntityTabs: () => void      // switching project: those entities belong to the old project's database
   setActiveTab: (id: string) => void
   setEditorMode: (m: EditorMode) => void
   toggleGroup: (key: string) => void
@@ -84,6 +85,11 @@ export const useUiStore = create<UiState>()(
           const tabs = s.tabs.filter((t) => tabId(t) !== id)
           const activeTab = s.activeTab === id ? (tabs.length ? tabId(tabs[tabs.length - 1]) : null) : s.activeTab
           return { tabs, activeTab }
+        }),
+      closeEntityTabs: () =>
+        set((s) => {
+          const tabs = s.tabs.filter((t) => t.kind !== 'entity')
+          return { tabs, activeTab: tabs.some((t) => tabId(t) === s.activeTab) ? s.activeTab : (tabs.length ? tabId(tabs[tabs.length - 1]) : null) }
         }),
       setActiveTab: (activeTab) => set({ activeTab }),
       setEditorMode: (editorMode) => set({ editorMode }),

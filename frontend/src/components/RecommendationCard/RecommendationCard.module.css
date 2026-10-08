@@ -31,3 +31,6 @@
 .leverVals { font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 4px; }
 .pct { font-family: var(--font-mono); color: var(--success); min-width: 60px; text-align: right; }
 .pct[data-neg] { color: var(--error); }
+
+.exclude { color: var(--text-muted); padding: 3px; border-radius: var(--radius-sm); display: grid; place-items: center; }
+.exclude:hover { color: var(--text-primary); background: var(--bg-hover); }

@@ -21,6 +21,7 @@ from ..models.project import utcnow
 from ..sins import parse
 from . import asset_indexer
 from .entity_rows import build_children, build_members, populate_entity
+from .faction_service import FactionService
 from .validation_service import ValidationService
 
 log = logging.getLogger(__name__)
@@ -75,6 +76,8 @@ class IngestService:
         if project.vanilla_root and Path(project.vanilla_root).is_dir():
             stats["assets"] += self._ingest_assets(project, Path(project.vanilla_root), "vanilla")
         self._ingest_memberships(project)
+        self.db.flush()
+        FactionService(self.db).assign(project.id)
         self._resolve_display_names(project)
         project.last_ingest_at = utcnow()
         self.db.commit()

@@ -6,8 +6,10 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_services.db")
 
-from app.db import SessionLocal, engine, init_db  # noqa: E402
-from app.dao import EntityDAO, ProjectDAO  # noqa: E402
+from app.db import SessionLocal, dispose_all, init_db, project_session  # noqa: E402
+from app.models import Project  # noqa: E402
+from app.services.project_registry import ProjectRegistry  # noqa: E402
+from app.dao import EntityDAO  # noqa: E402
 from app.services.balance_service import BalanceService  # noqa: E402
 from app.services.edit_service import EditService  # noqa: E402
 from app.services.export_service import ExportService  # noqa: E402
@@ -19,14 +21,17 @@ def db(mod_root: Path, tmp_path_factory):
     for f in Path(".").glob("test_services.db*"):
         f.unlink()
     init_db()
-    session = SessionLocal()
+    reg = SessionLocal()
     out = tmp_path_factory.mktemp("out")
-    project = ProjectDAO(session).create(name="svc", mod_root=str(mod_root), output_root=str(out))
-    session.commit()
+    pid = ProjectRegistry(reg).create(name="svc", mod_root=str(mod_root), output_root=str(out)).id
+    session = project_session(pid)
+    project = session.get(Project, pid)
     IngestService(session).ingest(project)
     yield session, project, out
     session.close()
-    engine.dispose()
+    ProjectRegistry(reg).remove(pid)
+    reg.close()
+    dispose_all()
     for f in Path(".").glob("test_services.db*"):
         try:
             f.unlink()
@@ -89,6 +94,23 @@ def test_balance_excludes_placeholders_and_flagship_only_units(db):
     for rec in report["recommendations"]:
         assert rec["direction"] in ("over-tuned", "under-tuned")
         assert abs(rec["z"]) >= report["zThreshold"]
+
+
+def test_balance_exclusions_leave_the_peer_group(db):
+    session, project, _ = db
+    svc = BalanceService(session)
+    before = svc.recommendations(project, category="ship")
+    victim = before["recommendations"][0]
+    sizes = {g["group"]: g["size"] for g in before["groups"]}
+    svc.exclude(project, victim["entity"], "debug")
+    session.commit()
+    after = svc.recommendations(project, category="ship")
+    assert victim["entity"] not in {r["entity"] for r in after["recommendations"]}
+    assert {g["group"]: g["size"] for g in after["groups"]}.get(victim["group"], 0) == sizes[victim["group"]] - 1
+    assert after["excluded"][0]["entity"] == victim["entity"]
+    assert svc.include(project, victim["entity"])
+    session.commit()
+    assert svc.recommendations(project, category="ship")["groups"] == before["groups"]
 
 
 def test_string_ref_edit_creates_placeholder_string(db):

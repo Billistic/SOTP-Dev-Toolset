@@ -1,6 +1,6 @@
 import { api, qs } from './client'
 import type {
-  BalanceReport, BuffSummary, Distribution, FieldCatalogEntry, Graph, GraphLayout, ManifestStatus, ManifestSync, MetricTable, RelGraph,
+  BalanceExclusion, BalanceReport, BuffSummary, Distribution, FieldCatalogEntry, Graph, GraphLayout, ManifestStatus, ManifestSync, MetricTable, RelGraph,
 } from '@/types/api'
 
 export interface Overview {
@@ -10,7 +10,10 @@ export interface Overview {
   diagnostics: Record<string, number>
 }
 
+export interface Faction { faction: string; race: string | null; player: string; members: number }
+
 export const insightsApi = {
+  factions: () => api.get<Faction[]>('/factions'),
   overview: () => api.get<Overview>('/analytics/overview'),
   fieldCatalog: (entityType: string) => api.get<FieldCatalogEntry[]>(`/analytics/fields/${entityType}`),
   distribution: (entityType: string, path: string, groupBy = 'faction') =>
@@ -22,7 +25,11 @@ export const insightsApi = {
   research: () => api.get<{ tiers: Record<string, unknown>[]; modifiers: Record<string, unknown>[] }>('/analytics/research'),
   recommendations: (p: { category?: string; z?: number; min_group?: number; entity_type?: string; reachable_only?: boolean } = {}) =>
     api.get<BalanceReport>(`/balance/recommendations${qs(p)}`),
-  symmetry: (category = 'ship') => api.get<Record<string, unknown>[]>(`/balance/symmetry${qs({ category })}`),
+  symmetry: (category = 'ship', reachableOnly = true) =>
+    api.get<Record<string, unknown>[]>(`/balance/symmetry${qs({ category, reachable_only: reachableOnly })}`),
+  excludeFromBalance: (name: string, reason: string, note?: string) =>
+    api.put<BalanceExclusion>(`/balance/exclusions/${encodeURIComponent(name)}`, { reason, note: note || null }),
+  includeInBalance: (name: string) => api.del<void>(`/balance/exclusions/${encodeURIComponent(name)}`),
   researchGraph: (player: string) => api.get<Graph>(`/graph/research/${encodeURIComponent(player)}`),
   neighbourhood: (name: string, depth = 1) => api.get<Graph>(`/graph/neighbourhood/${encodeURIComponent(name)}${qs({ depth })}`),
   relationships: (p: { categories?: string; focus?: string; depth?: number; direction?: 'out' | 'in' | 'both'; incoming?: boolean; include?: string; factions?: string; asset_kinds?: string; asset_focus?: string; max_nodes?: number }) =>

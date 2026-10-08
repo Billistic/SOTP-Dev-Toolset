@@ -2,15 +2,15 @@ import { Fragment, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useUiStore } from '@/store/useUiStore'
 import { factionColor, fmtNum, fmtPct, humanKey } from '@/utils/format'
+import { useFactions } from '@/hooks/useFactions'
 import type { BuffSummary } from '@/types/api'
 import styles from './BuffSummaryTable.module.css'
-
-const RACE_OF: Record<string, string> = { Cole: 'UNSC', Hood: 'UNSC', Stanforth: 'UNSC', Regret: 'Covenant', Thel: 'Covenant' }
 
 /** Fleet-wide "abilities on" lens: base vs buffed headline metrics for every unit whose own buffs change them. */
 export function BuffSummaryTable({ data }: { data: BuffSummary }) {
   const openEntity = useUiStore((s) => s.openEntity)
   const setMode = useUiStore((s) => s.setEditorMode)
+  const { raceOf } = useFactions()
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'dps_total_pct', dir: 1 })
   const [faction, setFaction] = useState('')
   const [filter, setFilter] = useState('')
@@ -68,7 +68,7 @@ export function BuffSummaryTable({ data }: { data: BuffSummary }) {
                   <td>
                     <button type="button" className={styles.link} onClick={() => { setMode('buffs'); openEntity(String(r.name)) }} title="Open the unit's Buff impact tab">{String(r.name)}</button>
                   </td>
-                  <td><span className={styles.swatch} style={{ background: factionColor(String(r.race ?? RACE_OF[String(r.faction)] ?? '')) }} />{String(r.faction ?? '')}</td>
+                  <td><span className={styles.swatch} style={{ background: factionColor(r.race ? String(r.race) : raceOf(r.faction)) }} />{String(r.faction ?? '')}</td>
                   <td className={styles.abilities} title={abilities.join('\n')}>
                     {abilities.map((a) => <span key={a} className={styles.ab} data-missing={missing.includes(a) || undefined}>{a.replace(/^Ability_?/, '')}</span>)}
                     {(r.unmodelled as number) > 0 && <span className={styles.ab} data-warn="">{r.unmodelled as number} unmodelled</span>}

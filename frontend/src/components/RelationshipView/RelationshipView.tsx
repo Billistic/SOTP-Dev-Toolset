@@ -23,6 +23,7 @@ import { ASSET_H, ASSET_W, AssetGraphNode, type AssetGraphNodeData } from '@/com
 import { AssetPicker } from '@/components/AssetPicker/AssetPicker'
 import { NewEntityDialog } from '@/components/NewEntityDialog/NewEntityDialog'
 import { RelationshipDetail } from '@/components/RelationshipDetail/RelationshipDetail'
+import { useFactions } from '@/hooks/useFactions'
 import type { Reference, RelEdge, RelGraph, RelNode } from '@/types/api'
 import styles from './RelationshipView.module.css'
 
@@ -32,7 +33,6 @@ const PATHWAYS: { id: string; label: string }[] = [
   { id: 'planet', label: 'Planets' }, { id: 'player', label: 'Players' },
 ]
 const ASSET_KINDS = ['mesh', 'particle', 'sound', 'brush', 'texture']
-const FACTIONS = ['UNSC', 'Cole', 'Hood', 'Stanforth', 'Covenant', 'Regret', 'Thel']
 const EDGE_COLORS: Record<string, string> = {
   Subject: 'var(--warning)', ability: 'var(--covenant)', buffType: 'var(--success)', buffTypeToRemove: 'var(--success)',
   entityDefName: 'var(--text-muted)', squadTypeEntityDef: 'var(--unsc)', fighterEntityDef: 'var(--unsc)', flagship: 'var(--accent)',
@@ -105,6 +105,7 @@ export function RelationshipView() {
 /** Global relationship map: pathways (category filters) or a single entity's pipeline; edges are live fields. */
 function Builder() {
   const g = useGraphStore()
+  const { options: factionOptions } = useFactions()
   const qc = useQueryClient()
   const openEntity = useUiStore((s) => s.openEntity)
   const { connect, disconnect } = useGraphEdits()
@@ -323,7 +324,7 @@ function Builder() {
         </div>
         <select value={g.faction} disabled={!!g.focus} onChange={(e) => g.setFaction(e.target.value)} title="Limit the pathway to one race or faction" className={styles.layoutSel}>
           <option value="">all factions</option>
-          {FACTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {factionOptions.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
         <span className={styles.sep} />
         <div className={styles.focus}>

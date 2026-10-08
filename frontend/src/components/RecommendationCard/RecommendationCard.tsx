@@ -1,16 +1,17 @@
-import { ArrowRight, ExternalLink } from 'lucide-react'
+import { ArrowRight, EyeOff, ExternalLink } from 'lucide-react'
 import { useUiStore } from '@/store/useUiStore'
 import { fmtNum, fmtPct, humanKey } from '@/utils/format'
 import type { Recommendation } from '@/types/api'
 import styles from './RecommendationCard.module.css'
 
-export function RecommendationCard({ rec }: { rec: Recommendation }) {
+export function RecommendationCard({ rec, onExclude }: { rec: Recommendation; onExclude?: () => void }) {
   const openEntity = useUiStore((s) => s.openEntity)
   return (
     <article className={styles.card} data-severity={rec.severity} data-direction={rec.direction}>
       <header className={styles.head}>
         <button className={styles.name} onClick={() => openEntity(rec.entity)} title={rec.displayName ?? ''}>{rec.entity} <ExternalLink size={12} /></button>
         <span className={styles.badge}>{rec.direction}</span>
+        {onExclude && <button className={styles.exclude} onClick={onExclude} title="Leave this entity out of the balance statistics (dev, debug, empty, AI...)"><EyeOff size={12} /></button>}
       </header>
       <div className={styles.meta}>
         <span>{rec.entityType} · {rec.faction ?? 'shared'}</span>

@@ -1,23 +1,30 @@
 """Analytics, balance recommendations, graphs and exports."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..dao import LayoutDAO
 from ..db import get_db
-from ..models import Project
+from ..models import EXCLUSION_REASONS, Project
 from ..services.analytics_service import METRICS, AnalyticsService
 from ..services.balance_service import BalanceService
 from ..services.buff_service import BuffService
 from ..services.export_service import ExportService
+from ..services.faction_service import FactionService
 from ..services.manifest_service import ManifestService
 from ..services.graph_service import GraphService
 from .deps import get_project
 
 router = APIRouter(tags=["insights"])
+
+
+@router.get("/factions")
+def factions(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """The project's own factions (one per Player entity), for faction pickers and colouring."""
+    return FactionService(db).factions(project.id)
 
 
 # ── analytics ───────────────────────────────────────────────────────────
@@ -64,6 +71,32 @@ def recommendations(category: str = "ship", z: float = Query(1.5, ge=0.5), min_g
                     db: Session = Depends(get_db), project: Project = Depends(get_project)):
     return BalanceService(db).recommendations(project, category=category, z_threshold=z, min_group=min_group,
                                               entity_type=entity_type, reachable_only=reachable_only)
+
+
+class ExclusionIn(BaseModel):
+    reason: str = "other"
+    note: str | None = None
+
+
+@router.get("/balance/exclusions")
+def balance_exclusions(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Entities kept out of the balance statistics, with why."""
+    return {"reasons": list(EXCLUSION_REASONS), "excluded": [x.to_dict() for x in BalanceService(db).exclusions(project)]}
+
+
+@router.put("/balance/exclusions/{name}")
+def exclude_entity(name: str, body: ExclusionIn, db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    if body.reason not in EXCLUSION_REASONS:
+        raise HTTPException(400, f"reason must be one of {', '.join(EXCLUSION_REASONS)}")
+    row = BalanceService(db).exclude(project, name, body.reason, body.note)
+    db.commit()
+    return row.to_dict()
+
+
+@router.delete("/balance/exclusions/{name}", status_code=204)
+def include_entity(name: str, db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    BalanceService(db).include(project, name)
+    db.commit()
 
 
 @router.get("/balance/symmetry")

@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useUiStore } from '@/store/useUiStore'
 import { factionColor, fmtNum, humanKey } from '@/utils/format'
+import { useFactions } from '@/hooks/useFactions'
 import type { MetricTable as MetricTableData } from '@/types/api'
 import styles from './MetricTable.module.css'
-
-const RACE_OF: Record<string, string> = { Cole: 'UNSC', Hood: 'UNSC', Stanforth: 'UNSC', Regret: 'Covenant', Thel: 'Covenant' }
 
 /** Sortable, filterable table of typed metrics with per-column heat shading. */
 export function MetricTable({ table }: { table: MetricTableData }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: 'name', dir: 1 })
   const [faction, setFaction] = useState('')
+  const { raceOf } = useFactions()
   const [role, setRole] = useState('')
   const [filter, setFilter] = useState('')
   const openEntity = useUiStore((s) => s.openEntity)
@@ -68,7 +68,7 @@ export function MetricTable({ table }: { table: MetricTableData }) {
             {rows.map((r) => (
               <tr key={String(r.name)}>
                 <td className={styles.sticky}><button className={styles.link} onClick={() => openEntity(String(r.name))} title={String(r.displayName ?? '')}>{String(r.name)}</button></td>
-                <td><i className={styles.swatch} style={{ background: factionColor(RACE_OF[String(r.faction)] ?? null) }} />{String(r.faction ?? '')}</td>
+                <td><i className={styles.swatch} style={{ background: factionColor(raceOf(r.faction)) }} />{String(r.faction ?? '')}</td>
                 <td className={styles.role}>{String(r.role ?? '')}</td>
                 {table.metrics.map((m) => <td key={m} className={styles.num} style={heat(m, r[m])}>{fmtNum(r[m], 3)}</td>)}
               </tr>

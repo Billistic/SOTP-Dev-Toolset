@@ -13,8 +13,10 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture(scope="module")
 def client(mod_root: Path):
+    import shutil
     for f in Path(".").glob("test_api.db*"):
         f.unlink()
+    shutil.rmtree("test_api.projects", ignore_errors=True)
     with TestClient(app) as c:
         r = c.post("/api/projects", json={"name": "test", "modRoot": str(mod_root)})
         assert r.status_code == 201, r.text
@@ -24,8 +26,9 @@ def client(mod_root: Path):
         assert r.status_code == 200, r.text
         assert r.json()["added"] > 800
         yield c
-    from app.db import engine
-    engine.dispose()  # release the SQLite file so Windows lets us delete it
+    from app.db import dispose_all
+    dispose_all()  # release the SQLite files so Windows lets us delete them
+    shutil.rmtree("test_api.projects", ignore_errors=True)
     for f in Path(".").glob("test_api.db*"):
         try:
             f.unlink()
@@ -118,3 +121,23 @@ def test_relationship_graph_and_layout(client):
     assert client.get("/api/graph/layout/test").json()["positions"] == {"A": {"x": 1, "y": 2}, "B": {"x": 3, "y": 4}}
     assert client.delete("/api/graph/layout/test").status_code == 204
     assert client.get("/api/graph/layout/test").json()["positions"] == {}
+
+
+def test_projects_have_separate_databases(client, mod_root, tmp_path):
+    from app.db import project_db_path
+    first = client.get("/api/projects/active").json()["id"]
+    before = len(client.get("/api/entities", params={"limit": 5000}).json())
+    other = tmp_path / "othermod"
+    (other / "GameInfo").mkdir(parents=True)
+    (other / "GameInfo" / "Player_Tech.entity").write_bytes((mod_root / "GameInfo" / "Player_UNSC_Cole.entity").read_bytes())
+    pid = client.post("/api/projects", json={"name": "other", "modRoot": str(other)}).json()["id"]
+    assert project_db_path(pid).is_file() and project_db_path(pid) != project_db_path(first)
+    client.post(f"/api/projects/{pid}/activate")
+    client.post(f"/api/projects/{pid}/ingest")
+    assert [e["name"] for e in client.get("/api/entities").json()] == ["Player_Tech"]
+    client.post(f"/api/projects/{first}/activate")
+    assert len(client.get("/api/entities", params={"limit": 5000}).json()) == before   # untouched by the other ingest
+    assert client.delete(f"/api/projects/{pid}").status_code == 204
+    assert not project_db_path(pid).exists()
+    ids = [p["id"] for p in client.get("/api/projects").json()]
+    assert first in ids and pid not in ids

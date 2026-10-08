@@ -23,3 +23,4 @@ desktop/dist/
 desktop/certs/
 desktop/Output/
 desktop/*.zip
+backend/*.projects/
