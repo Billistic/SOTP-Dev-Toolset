@@ -124,6 +124,10 @@ def warn_if_version_lags() -> None:
 
 
 def main() -> int:
+    # Started from PowerShell 7 (pwsh, e.g. the CI step), PSModulePath points at PS7's modules and the Windows
+    # PowerShell 5.1 that sign.ps1 / Inno's signing hook run in cannot load Get-AuthenticodeSignature. Let 5.1
+    # rebuild its own default path.
+    os.environ.pop("PSModulePath", None)
     warn_if_version_lags()
     do_sign = "--no-sign" not in sys.argv and signing_configured()
     if "--skip-frontend" not in sys.argv:
