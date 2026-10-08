@@ -35,3 +35,5 @@
 .status { display: flex; align-items: center; gap: 8px; }
 .rowBtn { color: var(--text-muted); padding: 3px; border-radius: var(--radius-sm); display: grid; place-items: center; }
 .rowBtn:hover { color: var(--error); background: var(--bg-hover); }
+
+.over { font-family: var(--font-mono); font-size: 10.5px; color: var(--warning); margin-left: 4px; }

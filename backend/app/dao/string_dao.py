@@ -1,17 +1,26 @@
 """Localisation string persistence."""
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 
 from ..models import GameString
 from .base import BaseDAO, search_clause
 
 
+PRIMARY_STR = "String/English.str"
+MAX_STRING_LEN = 256   # longest Value the game reads safely (QA #11); longer ones are flagged, not refused
+
+
 class StringDAO(BaseDAO[GameString]):
+    """One row per (string ID, .str file): English.str, French.str ... are separate, never merged (QA #13).
+    Lookups without a file prefer the primary English.str."""
     model = GameString
 
-    def get_by_id(self, project_id: int, string_id: str) -> GameString | None:
-        return self.first(self.select().where(GameString.project_id == project_id, GameString.string_id == string_id))
+    def get_by_id(self, project_id: int, string_id: str, source_file: str | None = None) -> GameString | None:
+        stmt = self.select().where(GameString.project_id == project_id, GameString.string_id == string_id)
+        if source_file:
+            return self.first(stmt.where(GameString.source_file == source_file))
+        return self.first(stmt.order_by(GameString.source_file != PRIMARY_STR, GameString.source_file))
 
     def id_set(self, project_id: int) -> set[str]:
         rows = self.db.execute(select(GameString.string_id)
@@ -19,24 +28,44 @@ class StringDAO(BaseDAO[GameString]):
         return {s for (s,) in rows}
 
     def value_map(self, project_id: int) -> dict[str, str]:
+        """string ID -> text; the primary file wins over translations (its rows come last)."""
         rows = self.db.execute(select(GameString.string_id, GameString.value)
-                               .where(GameString.project_id == project_id, GameString.is_deleted.is_(False))).all()
+                               .where(GameString.project_id == project_id, GameString.is_deleted.is_(False))
+                               .order_by(GameString.source_file == PRIMARY_STR)).all()
         return dict(rows)
 
-    def list(self, project_id: int, *, search: str | None = None, modified_only: bool = False,
-             limit: int = 500, offset: int = 0) -> list[GameString]:
+    def list(self, project_id: int, *, search: str | None = None, modified_only: bool = False, source_file: str | None = None,
+             too_long: bool = False, limit: int = 500, offset: int = 0) -> list[GameString]:
         stmt = self.select().where(GameString.project_id == project_id)
+        if source_file:
+            stmt = stmt.where(GameString.source_file == source_file)
+        if too_long:
+            stmt = stmt.where(func.length(GameString.value) > MAX_STRING_LEN)
         if search:
             stmt = stmt.where(search_clause(search, GameString.string_id, GameString.value))
         if modified_only:
             stmt = stmt.where(or_(GameString.is_modified.is_(True), GameString.is_new.is_(True), GameString.is_deleted.is_(True)))
         else:
             stmt = stmt.where(GameString.is_deleted.is_(False))
-        return self.scalars(stmt.order_by(GameString.string_id).limit(limit).offset(offset))
+        return self.scalars(stmt.order_by(GameString.string_id, GameString.source_file).limit(limit).offset(offset))
 
-    def count(self, project_id: int) -> int:
-        return self.db.scalar(select(func.count()).select_from(GameString)
-                              .where(GameString.project_id == project_id, GameString.is_deleted.is_(False))) or 0
+    def count(self, project_id: int, source_file: str | None = None) -> int:
+        stmt = select(func.count()).select_from(GameString).where(GameString.project_id == project_id, GameString.is_deleted.is_(False))
+        if source_file:
+            stmt = stmt.where(GameString.source_file == source_file)
+        return self.db.scalar(stmt) or 0
+
+    def file_summary(self, project_id: int) -> list[dict]:
+        """Each .str file with its string count, pending changes and over-length values; primary first."""
+        changed = or_(GameString.is_modified.is_(True), GameString.is_new.is_(True), GameString.is_deleted.is_(True))
+        rows = self.db.execute(select(
+            GameString.source_file,
+            func.sum(case((GameString.is_deleted.is_(False), 1), else_=0)),
+            func.sum(case((changed, 1), else_=0)),
+            func.sum(case((func.length(GameString.value) > MAX_STRING_LEN, 1), else_=0)),
+        ).where(GameString.project_id == project_id).group_by(GameString.source_file)).all()
+        out = [{"file": f, "count": int(n or 0), "changes": int(c or 0), "tooLong": int(t or 0)} for f, n, c, t in rows]
+        return sorted(out, key=lambda r: (r["file"] != PRIMARY_STR, r["file"]))
 
     def changes(self, project_id: int) -> list[GameString]:
         """Every row that differs from the .str files on disk."""
@@ -81,7 +110,7 @@ class StringDAO(BaseDAO[GameString]):
                 self.db.delete(old)
 
     def upsert(self, project_id: int, string_id: str, value: str, source_file: str) -> GameString:
-        row = self.get_by_id(project_id, string_id)
+        row = self.get_by_id(project_id, string_id, source_file)   # this file's row only, never a translation's
         if row is None:
             row = GameString(project_id=project_id, string_id=string_id, value=value, original_value="",
                              is_modified=True, is_new=True, source_file=source_file)

@@ -23,7 +23,7 @@ export function StringChangesPanel() {
     if (msg) toast.success(msg)
   }
   const revert = useMutation({
-    mutationFn: (ids?: string[]) => catalogApi.revertStrings(ids),
+    mutationFn: ({ ids, file }: { ids?: string[]; file?: string }) => catalogApi.revertStrings(ids, file),
     onSuccess: (r) => done(`Reverted ${r.reverted} string(s)`),
     onError: (e: Error) => toast.error(e.message),
   })
@@ -45,7 +45,7 @@ export function StringChangesPanel() {
         <span className={styles.pill} data-status="deleted">{data.deleted.length} removed</span>
         <span className="muted">{total === 0 ? 'The editor matches the files on disk.' : 'Not yet written to disk.'}</span>
         <span className={styles.spacer} />
-        <button className="btn sm" disabled={!total || busy} onClick={() => revert.mutate(undefined)} title="Discard every string change"><Undo2 size={12} /> Revert all</button>
+        <button className="btn sm" disabled={!total || busy} onClick={() => revert.mutate({})} title="Discard every string change"><Undo2 size={12} /> Revert all</button>
       </div>
       {total > 0 && (
         <table className={styles.table}>
@@ -54,11 +54,11 @@ export function StringChangesPanel() {
             {rows.map(({ s, status }) => (
               <tr key={s.id} data-status={status}>
                 <td><span className={styles.pill} data-status={status}>{status === 'modified' ? 'edited' : status === 'deleted' ? 'removed' : 'new'}</span></td>
-                <td className={styles.id}><button className={styles.idBtn} onClick={() => openString(s.stringId)} title="Open in the string editor">{s.stringId}</button>
+                <td className={styles.id}><button className={styles.idBtn} onClick={() => openString(s.stringId, false, s.sourceFile)} title="Open in the string editor">{s.stringId}</button>
                   <div className={styles.meta}>{s.sourceFile}{s.line ? `:${s.line}` : ''}</div></td>
                 <td className={styles.text}>{status === 'new' ? <span className={styles.none}>(absent)</span> : <Diff before={s.originalValue} after={status === 'deleted' ? '' : s.value} side="before" />}</td>
                 <td className={styles.text}>{status === 'deleted' ? <span className={styles.none}>(removed)</span> : <Diff before={status === 'new' ? '' : s.originalValue} after={s.value} side="after" />}</td>
-                <td><button className={styles.revert} disabled={busy} onClick={() => revert.mutate([s.stringId])} title="Restore what is on disk"><Undo2 size={12} /></button></td>
+                <td><button className={styles.revert} disabled={busy} onClick={() => revert.mutate({ ids: [s.stringId], file: s.sourceFile })} title="Restore what is on disk"><Undo2 size={12} /></button></td>
               </tr>
             ))}
           </tbody>

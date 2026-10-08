@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..dao import AssetDAO, DiagnosticDAO, FieldDAO, StringDAO
+from ..dao.string_dao import MAX_STRING_LEN, PRIMARY_STR
 from ..db import get_db
 from ..models import Project
 from ..sins.schemas.weapons import WEAPON_FIELDS, WEAPON_SOUND_LISTS, WEAPON_TEMPLATES
@@ -51,11 +52,18 @@ class StringIn(BaseModel):
 
 
 @router.get("/strings")
-def list_strings(search: str | None = None, modified: bool = False, limit: int = Query(500, le=5000), offset: int = 0,
+def list_strings(search: str | None = None, modified: bool = False, file: str | None = None, too_long: bool = False,
+                 limit: int = Query(500, le=5000), offset: int = 0,
                  db: Session = Depends(get_db), project: Project = Depends(get_project)):
     dao = StringDAO(db)
-    return {"total": dao.count(project.id),
-            "rows": [s.to_dict() for s in dao.list(project.id, search=search, modified_only=modified, limit=limit, offset=offset)]}
+    rows = dao.list(project.id, search=search, modified_only=modified, source_file=file, too_long=too_long, limit=limit, offset=offset)
+    return {"total": dao.count(project.id, file), "maxLength": MAX_STRING_LEN, "rows": [s.to_dict() for s in rows]}
+
+
+@router.get("/strings/files")
+def string_files(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """The project's .str files (English.str, French.str ...), primary first."""
+    return {"primary": PRIMARY_STR, "maxLength": MAX_STRING_LEN, "files": StringDAO(db).file_summary(project.id)}
 
 
 @router.get("/strings/changes")
@@ -69,12 +77,15 @@ def string_changes(db: Session = Depends(get_db), project: Project = Depends(get
 
 class RevertIn(BaseModel):
     ids: list[str] | None = None   # None reverts every change
+    file: str | None = None        # limit to one .str file
 
 
 @router.post("/strings/revert")
 def revert_strings(body: RevertIn, db: Session = Depends(get_db), project: Project = Depends(get_project)):
     dao = StringDAO(db)
     rows = dao.changes(project.id)
+    if body.file:
+        rows = [r for r in rows if r.source_file == body.file]
     if body.ids is not None:
         wanted = set(body.ids)
         rows = [r for r in rows if r.string_id in wanted]
@@ -85,8 +96,8 @@ def revert_strings(body: RevertIn, db: Session = Depends(get_db), project: Proje
 
 
 @router.get("/strings/{string_id}")
-def get_string(string_id: str, db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    row = StringDAO(db).get_by_id(project.id, string_id)
+def get_string(string_id: str, file: str | None = None, db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    row = StringDAO(db).get_by_id(project.id, string_id, file)
     if row is None:
         raise HTTPException(404, "string not found")
     return row.to_dict()
@@ -100,10 +111,10 @@ def put_string(string_id: str, body: StringIn, db: Session = Depends(get_db), pr
 
 
 @router.delete("/strings/{string_id}", status_code=204)
-def delete_string(string_id: str, db: Session = Depends(get_db), project: Project = Depends(get_project)):
+def delete_string(string_id: str, file: str | None = None, db: Session = Depends(get_db), project: Project = Depends(get_project)):
     """Marks the row deleted (revertable); it leaves the .str file on the next strings write."""
     dao = StringDAO(db)
-    row = dao.get_by_id(project.id, string_id)
+    row = dao.get_by_id(project.id, string_id, file)
     if row is None:
         raise HTTPException(404, "string not found")
     dao.mark_deleted(row)

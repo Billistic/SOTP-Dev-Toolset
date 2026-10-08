@@ -7,3 +7,6 @@
 .meta { font-size: var(--font-size-sm); color: var(--text-muted); font-family: var(--font-mono); }
 .note { font-size: var(--font-size-sm); color: var(--modified); }
 .spacer { flex: 1; }
+
+.counter { align-self: flex-end; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.counter[data-over] { color: var(--warning); }

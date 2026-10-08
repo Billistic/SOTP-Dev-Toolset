@@ -9,6 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Iterator
 
+from ..dao.string_dao import MAX_STRING_LEN
 from ..models import Diagnostic, Entity, FactionMember, GameString, Reference
 from ..sins import Document
 from ..sins.schemas import schema_for
@@ -272,6 +273,10 @@ def string_rules(project_id: int, strings: list[GameString], used: set[str]) -> 
         if s.duplicate_count > 1:
             yield _d(project_id, "string", "warning", "DUPLICATE_STRING",
                      f"'{s.string_id}' is defined {s.duplicate_count} times in {s.source_file}; the game keeps the first.",
+                     target=s.string_id, line=s.line_no)
+        if len(s.value) > MAX_STRING_LEN:
+            yield _d(project_id, "string", "warning", "STRING_TOO_LONG",
+                     f"'{s.string_id}' in {s.source_file} is {len(s.value)} characters; Sins reads at most {MAX_STRING_LEN}.",
                      target=s.string_id, line=s.line_no)
         if s.string_id not in used and s.string_id != "READ_THIS":
             yield _d(project_id, "string", "info", "UNUSED_STRING", f"'{s.string_id}' is not referenced by any entity.",

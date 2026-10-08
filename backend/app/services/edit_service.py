@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ..dao import AssetDAO, EntityDAO, StringDAO
+from ..dao.string_dao import PRIMARY_STR
 from ..models import Entity, GameString, Project
 from ..models.project import utcnow
 from ..sins import Document, Node, parse
@@ -25,7 +26,6 @@ from .faction_service import FactionService
 from .manifest_service import ManifestService
 from .validation_service import ValidationService
 
-PRIMARY_STR = "String/English.str"
 TRASH_DIR = ".sotp-trash"
 
 
