@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.3
+
+- 
+
 ## 2.0.2
 
 - Launch splash: the emblem traces in while the backend boots, then the same window becomes the app (no second window, no flicker).
