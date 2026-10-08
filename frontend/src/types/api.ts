@@ -201,7 +201,10 @@ export interface BalanceReport {
   zThreshold: number
   groups: { group: string; size: number; factions: string[]; stats: Record<string, Partial<Stats>> }[]
   recommendations: Recommendation[]
+  excluded: BalanceExclusion[]
 }
+
+export interface BalanceExclusion { entity: string; reason: string; note: string | null; createdAt: string | null }
 
 export interface GameString {
   id: number

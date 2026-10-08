@@ -96,6 +96,23 @@ def test_balance_excludes_placeholders_and_flagship_only_units(db):
         assert abs(rec["z"]) >= report["zThreshold"]
 
 
+def test_balance_exclusions_leave_the_peer_group(db):
+    session, project, _ = db
+    svc = BalanceService(session)
+    before = svc.recommendations(project, category="ship")
+    victim = before["recommendations"][0]
+    sizes = {g["group"]: g["size"] for g in before["groups"]}
+    svc.exclude(project, victim["entity"], "debug")
+    session.commit()
+    after = svc.recommendations(project, category="ship")
+    assert victim["entity"] not in {r["entity"] for r in after["recommendations"]}
+    assert {g["group"]: g["size"] for g in after["groups"]}.get(victim["group"], 0) == sizes[victim["group"]] - 1
+    assert after["excluded"][0]["entity"] == victim["entity"]
+    assert svc.include(project, victim["entity"])
+    session.commit()
+    assert svc.recommendations(project, category="ship")["groups"] == before["groups"]
+
+
 def test_string_ref_edit_creates_placeholder_string(db):
     session, project, _ = db
     from app.dao import StringDAO

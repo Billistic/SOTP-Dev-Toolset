@@ -12,10 +12,11 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..dao import EntityDAO
-from ..models import Entity, Project
+from ..models import BalanceExclusion, Entity, Project
 from .analytics_service import peer_key
 from .stats import describe, robust_z
 
@@ -54,9 +55,29 @@ class BalanceService:
         self.db = db
         self.entities = EntityDAO(db)
 
+    # ── exclusions (QA #3) ──────────────────────────────────────────────
+    def exclusions(self, project: Project) -> list[BalanceExclusion]:
+        return list(self.db.scalars(select(BalanceExclusion).where(BalanceExclusion.project_id == project.id)
+                                    .order_by(BalanceExclusion.entity_name)))
+
+    def exclude(self, project: Project, name: str, reason: str, note: str | None = None) -> BalanceExclusion:
+        row = self.db.scalar(select(BalanceExclusion).where(BalanceExclusion.project_id == project.id,
+                                                            BalanceExclusion.entity_name == name))
+        if row is None:
+            row = BalanceExclusion(project_id=project.id, entity_name=name)
+            self.db.add(row)
+        row.reason, row.note = reason, note or None
+        return row
+
+    def include(self, project: Project, name: str) -> bool:
+        res = self.db.execute(delete(BalanceExclusion).where(BalanceExclusion.project_id == project.id,
+                                                             BalanceExclusion.entity_name == name))
+        return bool(res.rowcount)
+
     def _candidates(self, project: Project, category: str, entity_type: str | None, reachable_only: bool) -> list[Entity]:
         ents = self.entities.list(project.id, category=category, entity_type=entity_type, limit=100000)
-        ents = [e for e in ents if "placeholder" not in e.name.lower()]
+        excluded = {x.entity_name for x in self.exclusions(project)}   # the user's dev / debug / AI units never skew a peer group
+        ents = [e for e in ents if "placeholder" not in e.name.lower() and e.name not in excluded]
         if reachable_only:  # only units some Player can actually build / research (flagship slot excluded)
             listed = {m.member_name.lower() for m in self.entities.all_members(project.id) if m.slot != "flagship"}
             ents = [e for e in ents if e.name.lower() in listed]
@@ -94,7 +115,8 @@ class BalanceService:
                     recs.append(self._recommendation(e, key, m, label, float(value), st, z, high_is_strong, levers))
 
         recs.sort(key=lambda r: -abs(r["z"]))
-        return {"category": category, "zThreshold": z_threshold, "groups": group_summaries, "recommendations": recs}
+        return {"category": category, "zThreshold": z_threshold, "groups": group_summaries, "recommendations": recs,
+                "excluded": [x.to_dict() for x in self.exclusions(project)]}
 
     def _recommendation(self, e: Entity, key: tuple, metric: str, label: str, value: float, st: dict,
                         z: float, high_is_strong: bool, levers: tuple[str, ...]) -> dict[str, Any]:
