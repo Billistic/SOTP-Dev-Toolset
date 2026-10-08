@@ -5,9 +5,8 @@ interface WindowApi {
   toggle_maximize: () => Promise<boolean>
   is_maximized: () => Promise<boolean>
   close: () => Promise<void>
-  begin_resize: (edge: string) => Promise<boolean>
-  drag_resize: (dx: number, dy: number, scale: number) => Promise<void>
-  end_resize: () => Promise<void>
+  start_drag: () => Promise<boolean>              // Windows' own move loop: Snap, Win+arrow, FancyZones
+  start_resize: (edge: string) => Promise<boolean>
 }
 declare global {
   interface Window { pywebview?: { api: WindowApi } }
