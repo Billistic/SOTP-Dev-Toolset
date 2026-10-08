@@ -7,8 +7,10 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_factions.db")
 
-from app.db import SessionLocal, engine, init_db  # noqa: E402
-from app.dao import EntityDAO, ProjectDAO  # noqa: E402
+from app.db import SessionLocal, dispose_all, init_db, project_session  # noqa: E402
+from app.dao import EntityDAO  # noqa: E402
+from app.models import Project  # noqa: E402
+from app.services.project_registry import ProjectRegistry  # noqa: E402
 from app.services.faction_service import FactionService  # noqa: E402
 from app.services.ingest_service import IngestService  # noqa: E402
 
@@ -26,13 +28,16 @@ def vanilla_style(gameinfo: Path, tmp_path_factory):
     for f in Path(".").glob("test_factions.db*"):
         f.unlink()
     init_db()
-    session = SessionLocal()
-    project = ProjectDAO(session).create(name="other", mod_root=str(root))
-    session.commit()
+    reg = SessionLocal()
+    pid = ProjectRegistry(reg).create(name="other", mod_root=str(root)).id
+    session = project_session(pid)
+    project = session.get(Project, pid)
     IngestService(session).ingest(project)
     yield session, project, cole_only
     session.close()
-    engine.dispose()
+    ProjectRegistry(reg).remove(pid)
+    reg.close()
+    dispose_all()
     for f in Path(".").glob("test_factions.db*"):
         try:
             f.unlink()
