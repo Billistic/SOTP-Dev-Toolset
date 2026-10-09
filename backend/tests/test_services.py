@@ -260,3 +260,29 @@ def test_buff_impact_peer_z_and_derived_metrics(db):
     assert round(m["dps_per_supply"]["buffed"] / m["dps_per_supply"]["base"], 3) == round(m["dps_total"]["buffed"] / m["dps_total"]["base"], 3)
     plain = BuffService(session).impact(project, entity, hull=0.4)
     assert "peers" not in plain and "peer" not in plain["metrics"][0]
+
+
+def test_mod_assets_are_not_hidden_behind_vanilla(db):
+    """With a base game indexed, thousands of vanilla files used to fill every capped list (QA report)."""
+    from app.dao import AssetDAO
+    from app.models import Asset
+    session, project, _ = db
+    fake = [Asset(project_id=project.id, kind="mesh", name=f"AAA_Vanilla_{i:04}", name_lower=f"aaa_vanilla_{i:04}",
+                  path=f"Mesh/Vanilla_Sub/AAA_Vanilla_{i:04}.mesh", source="vanilla") for i in range(1500)]
+    session.add_all(fake)
+    session.flush()
+    try:
+        dao = AssetDAO(session)
+        mod_meshes = dao.summary(project.id, kind="mesh")["bySource"]["mod"]
+        page = dao.list(project.id, kind="mesh", limit=300)
+        assert all(a.source == "mod" for a in page[:min(300, mod_meshes)])        # mod first despite sorting later
+        s = dao.summary(project.id, kind="mesh")
+        assert s["total"] == mod_meshes + 1500 and s["bySource"]["vanilla"] == 1500
+        assert {"folder": "Mesh/Vanilla_Sub", "count": 1500} in s["folders"]
+        in_folder = dao.list(project.id, kind="mesh", folder="Mesh/Vanilla_Sub", limit=5000)
+        assert len(in_folder) == 1500
+        assert dao.list(project.id, kind="mesh", folder="Mesh/VanillaXSub", limit=5) == []   # "_" is literal, not a wildcard
+    finally:
+        for a in fake:
+            session.delete(a)
+        session.commit()

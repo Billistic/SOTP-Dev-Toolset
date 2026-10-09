@@ -28,8 +28,10 @@ export const catalogApi = {
   stringChanges: () => api.get<StringChanges>('/strings/changes'),
   revertStrings: (ids?: string[], file?: string) => api.post<{ reverted: number }>('/strings/revert', { ids: ids ?? null, file: file ?? null }),
   writeStrings: (file = PRIMARY_STR) => api.post<{ written: string }>(`/strings/write${qs({ source_file: file })}`),
-  assets: (p: { kind?: string; search?: string; source?: string; limit?: number } = {}) =>
+  assets: (p: { kind?: string; search?: string; source?: string; folder?: string; limit?: number } = {}) =>
     api.get<Asset[]>(`/assets${qs({ limit: 500, ...p })}`),
+  assetSummary: (p: { kind?: string; search?: string; source?: string } = {}) =>
+    api.get<{ total: number; bySource: Record<string, number>; folders: { folder: string; count: number }[] }>(`/assets/summary${qs(p)}`),
   assetKinds: () => api.get<{ kind: string; source: string; count: number }[]>('/assets/kinds'),
   diagnostics: (p: { severity?: string; code?: string; scope?: string; search?: string; limit?: number } = {}) =>
     api.get<Diagnostic[]>(`/diagnostics${qs({ limit: 2000, ...p })}`),

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 import { catalogApi } from '@/api/catalog'
 import { useDebounce } from '@/hooks/useDebounce'
 import styles from './AssetsView.module.css'
 
+const PAGE = 1000
 const KIND_LABEL: Record<string, string> = {
   mesh: 'Meshes', particle: 'Particles', texture: 'Textures', sound: 'Sound effects', music: 'Music',
   brush: 'Brushes (UI)', explosion: 'Explosions', texanim: 'Texture animations', fx: 'Shaders', ogg: 'Audio files',
@@ -18,24 +19,25 @@ export function AssetsView() {
   const [kind, setKind] = useState('mesh')
   const [search, setSearch] = useState('')
   const [source, setSource] = useState<Source>('')
-  const [dir, setDir] = useState('')
+  const [limit, setLimit] = useState(PAGE)
+  const [dir, setDir] = useState<string | null>(null)   // null = all folders, '' = files with no folder
   const debounced = useDebounce(search)
   const { data: kinds = [] } = useQuery({ queryKey: ['assets', 'kinds'], queryFn: catalogApi.assetKinds, retry: false })
   const hasVanilla = kinds.some((k) => k.source === 'vanilla')   // a base-game root is indexed: the toggle makes sense
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['assets', kind, debounced, source],
-    queryFn: () => catalogApi.assets({ kind, search: debounced || undefined, source: source || undefined, limit: 1000 }),
+  // totals and folders come from the server over every match; the list itself is capped (mod assets listed first)
+  const filters = { kind, search: debounced || undefined, source: source || undefined }
+  const { data: summary } = useQuery({ queryKey: ['assets', 'summary', kind, debounced, source], queryFn: () => catalogApi.assetSummary(filters), retry: false })
+  const { data: shown = [], isLoading } = useQuery({
+    queryKey: ['assets', kind, debounced, source, dir, limit],
+    queryFn: () => catalogApi.assets({ ...filters, folder: dir === null ? undefined : dir || '.', limit }),
+    placeholderData: (prev) => prev,   // keep the rows on screen while the next page loads
     retry: false,
   })
   const totals = kinds.reduce<Record<string, number>>((acc, k) => ({ ...acc, [k.kind]: (acc[k.kind] ?? 0) + k.count }), {})
-  // folders seen in this result set (the path's directory part), for the directory filter
-  const dirs = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const a of rows) { const d = dirOf(a.path); m.set(d, (m.get(d) ?? 0) + 1) }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [rows])
-  useEffect(() => setDir(''), [kind, source, debounced])   // a folder picked for one kind means nothing for the next
-  const shown = dir ? rows.filter((a) => dirOf(a.path) === dir) : rows
+  useEffect(() => { setDir(null); setLimit(PAGE) }, [kind, source, debounced])
+  useEffect(() => setLimit(PAGE), [dir])   // a folder picked for one kind means nothing for the next
+  const matching = dir === null ? summary?.total : summary?.folders.find((f) => f.folder === dir)?.count
+  const capped = matching !== undefined && shown.length < matching
 
   return (
     <div className={styles.root}>
@@ -52,15 +54,23 @@ export function AssetsView() {
           {hasVanilla && (
             <div className={styles.seg} role="group" aria-label="Source">
               {([['', 'all'], ['mod', 'mod'], ['vanilla', 'base game']] as [Source, string][]).map(([v, l]) => (
-                <button key={v} type="button" data-active={source === v || undefined} onClick={() => { setSource(v); setDir('') }}>{l}</button>
+                <button key={v} type="button" data-active={source === v || undefined} onClick={() => { setSource(v); setDir(null) }}>{l}</button>
               ))}
             </div>
           )}
-          <select value={dir} onChange={(e) => setDir(e.target.value)} title="Only assets in this folder" className={styles.dirSel}>
-            <option value="">all folders</option>
-            {dirs.map(([d, n]) => <option key={d} value={d}>{d || '(root)'} ({n})</option>)}
+          <select value={dir ?? '*'} onChange={(e) => setDir(e.target.value === '*' ? null : e.target.value)} title="Only assets in this folder" className={styles.dirSel}>
+            <option value="*">all folders</option>
+            {(summary?.folders ?? []).map((f) => <option key={f.folder} value={f.folder}>{f.folder || '(no folder)'} ({f.count})</option>)}
           </select>
-          <span className="muted">{shown.length}{shown.length !== rows.length ? ` of ${rows.length}` : ''} shown</span>
+          <span className="muted">
+            {shown.length}{matching !== undefined && matching !== shown.length ? ` of ${matching}` : ''} shown
+            {source === '' && summary?.bySource.vanilla ? ` \u00b7 ${summary.bySource.mod ?? 0} mod, ${summary.bySource.vanilla} base game` : ''}
+          </span>
+          {capped && (
+            <span className={styles.capped}>First {shown.length} listed (mod assets first)
+              {' '}<button type="button" className="btn sm" onClick={() => setLimit((n) => Math.min(5000, n + PAGE))} disabled={limit >= 5000}>Show {Math.min(PAGE, (matching ?? 0) - shown.length)} more</button>
+            </span>
+          )}
         </div>
         <div className={styles.list}>
           {isLoading ? <p className={styles.hint}>Loading…</p> : (
@@ -82,14 +92,6 @@ export function AssetsView() {
       </section>
     </div>
   )
-}
-
-/** Directory part of an indexed path ("Mesh/Ships/x.mesh" -> "Mesh/Ships"). */
-function dirOf(path: string | null | undefined): string {
-  if (!path) return ''
-  const p = path.replace(/\\/g, '/')
-  const i = p.lastIndexOf('/')
-  return i < 0 ? '' : p.slice(0, i)
 }
 
 function describeMeta(meta: Record<string, unknown>, size: number | null): string {
