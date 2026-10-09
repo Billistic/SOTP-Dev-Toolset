@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.5
+
+- Assets: mod files are no longer hidden behind the base game. With a base game indexed, lists (Assets view, asset picker) now show mod assets first; the folder filter and match counts cover every match, not just the loaded page; capped lists say so and offer "Show more".
+
 ## 2.0.4
 
 First release built and published by the release workflow; includes everything listed under 2.0.3 (QA issues #1-#5, #7, #10, #11, #13, #14).
