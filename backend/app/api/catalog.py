@@ -149,10 +149,19 @@ def write_strings(source_file: str = "String/English.str", db: Session = Depends
 
 # ── assets ──────────────────────────────────────────────────────────────
 @router.get("/assets")
-def list_assets(kind: str | None = None, search: str | None = None, source: str | None = None,
+def list_assets(kind: str | None = None, search: str | None = None, source: str | None = None, folder: str | None = None,
                 limit: int = Query(500, le=5000), offset: int = 0,
                 db: Session = Depends(get_db), project: Project = Depends(get_project)):
-    return [a.to_dict() for a in AssetDAO(db).list(project.id, kind=kind, search=search, source=source, limit=limit, offset=offset)]
+    """``folder``: only files directly in it ("." = files with no folder)."""
+    folder = "" if folder == "." else folder
+    return [a.to_dict() for a in AssetDAO(db).list(project.id, kind=kind, search=search, source=source, folder=folder,
+                                                   limit=limit, offset=offset)]
+
+
+@router.get("/assets/summary")
+def asset_summary(kind: str | None = None, search: str | None = None, source: str | None = None,
+                  db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    return AssetDAO(db).summary(project.id, kind=kind, search=search, source=source)
 
 
 @router.get("/assets/kinds")

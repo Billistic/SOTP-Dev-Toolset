@@ -29,3 +29,5 @@
 .seg button:hover { color: var(--text-primary); }
 .seg button[data-active] { background: var(--bg-active); color: var(--text-primary); }
 .dirSel { font-size: var(--font-size-sm); padding: 3px 6px; max-width: 260px; }
+
+.capped { font-size: var(--font-size-sm); color: var(--warning); }
