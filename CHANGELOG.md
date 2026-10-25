@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0
+
+- AI assistants (MCP): an optional, read-only MCP server lets Claude Code, Cursor, Windsurf, Cline, VS Code Copilot and other Streamable HTTP clients query the active project (overview, entity search and lookup, references, diagnostics, metric tables, balance recommendations). Off by default; turn it on from the new "AI assistants (MCP)" card in Project settings, which shows the endpoint, setup snippets per client and recent calls. Loopback only; nothing that edits, exports or ingests is exposed.
+- New entity: "Start from the definition" builds a complete entity from the Rebellion grammar, with every field in order and sensible defaults (#19). Changing a condition field swaps in the new option's fields. A Guided / Free switch in the Form toolbar lets you add any key by hand.
+- New entity: with a base game root set, "Copy from" also lists base-game entities of the chosen type (#18).
+- Strings: Write now edits the mod's .str files in place; untouched lines, line endings, order and duplicate entries are preserved instead of regenerating the whole file.
+- Form tab: gap-free column layout, plus a List view with a jump list (remembered between sessions).
+- Weapons tab: the comparison grid stays in sync with edits made in weapon cards (#20).
+- Entity header: buttons move under the name in narrow panes so Write stays reachable.
+
 ## 2.0.5
 
 - Assets: mod files are no longer hidden behind the base game. With a base game indexed, lists (Assets view, asset picker) now show mod assets first; the folder filter and match counts cover every match, not just the loaded page; capped lists say so and offer "Show more".
