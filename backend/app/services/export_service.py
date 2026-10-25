@@ -7,6 +7,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -15,7 +16,7 @@ from sqlalchemy.orm import Session
 from ..dao import EntityDAO, StringDAO
 from ..models import Entity, Project
 from ..models.project import utcnow
-from ..sins import Document, parse
+from ..sins import Document, parse, strings_file
 from ..sins.writer import write
 from ..sins.schemas import schema_for
 from .manifest_service import ManifestService
@@ -66,20 +67,35 @@ class ExportService:
 
     # ── strings ─────────────────────────────────────────────────────────
     def write_strings(self, project: Project, source_file: str = "String/English.str") -> Path:
+        """
+        Write one string table.  An existing file is edited in place (see
+        ``sins.strings_file``): only edited Value lines, added / deleted blocks
+        and NumStrings change.  The base is always the mod's own copy (what the
+        rows' original values describe), so repeated output-root writes never
+        apply an edit twice.  A table that does not exist yet is generated.
+        """
         rows = self.strings.all_for_file(project.id, source_file)
-        kept = [r for r in rows if not r.is_deleted]
-        lines = ["TXT", f"NumStrings {len(kept)}"]
-        for r in kept:
-            lines += ["StringInfo", f'\tID "{r.string_id}"', f'\tValue "{r.value}"']
+        base = Path(project.mod_root) / source_file
+        if base.is_file():
+            text = strings_file.edit(
+                base.read_bytes().decode("utf-8", "surrogateescape"),   # keep undecodable bytes as they are
+                set_values=[(r.string_id, r.value) for r in rows if (r.is_modified or r.is_new) and not r.is_deleted],
+                delete={r.string_id for r in rows if r.is_deleted})
+        else:
+            text = strings_file.generate((r.string_id, r.value) for r in rows if not r.is_deleted)
         path = self._target(project, source_file)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="")
+        path.write_bytes(text.encode("utf-8", "surrogateescape"))
         if self._in_place(project):   # disk now matches the editor: reset the change tracking
+            blocks = strings_file.scan(text).blocks
+            first = {b.string_id: b.start + 1 for b in reversed(blocks)}   # 1-based line of the first definition
+            dupes = Counter(b.string_id for b in blocks)
             for r in rows:
                 if r.is_deleted:
                     self.db.delete(r)
                 else:
                     r.original_value, r.is_modified, r.is_new = r.value, False, False
+                    r.line_no, r.duplicate_count = first.get(r.string_id, r.line_no), dupes.get(r.string_id, 1)
         self.db.commit()
         return path
 
