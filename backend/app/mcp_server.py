@@ -16,7 +16,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp_types import ToolAnnotations
+from mcp_types import CLIENT_INFO_META_KEY, ToolAnnotations
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -244,6 +244,24 @@ async def running() -> AsyncIterator[None]:
             _endpoint = None
 
 
+def _client_name(scope: Scope, body: bytes) -> tuple[str | None, bool]:
+    """Who is calling: clientInfo from ``initialize`` (older protocol) or from a request's ``_meta`` (newer,
+    initialize-less protocol), else the User-Agent header. The flag says whether it came from the protocol."""
+    try:
+        payload = json.loads(body) if body.lstrip()[:1] in (b"{", b"[") else None
+    except ValueError:
+        payload = None
+    for msg in payload if isinstance(payload, list) else [payload]:
+        params = msg.get("params") if isinstance(msg, dict) else None
+        if isinstance(params, dict):
+            info = params.get("clientInfo") or (params.get("_meta") or {}).get(CLIENT_INFO_META_KEY) or {}
+            name = " ".join(str(info[k]) for k in ("name", "version") if isinstance(info, dict) and info.get(k))
+            if name:
+                return name, True
+    agent = dict(scope.get("headers") or []).get(b"user-agent", b"").decode("latin-1").strip()
+    return agent or None, False
+
+
 class _Gated:
     """ASGI endpoint: 404 while disabled; otherwise note the client (from ``initialize``) and hand over to the
     SDK transport."""
@@ -266,16 +284,7 @@ class _Gated:
             body += message.get("body", b"")
             if not message.get("more_body"):
                 break
-        client = None
-        if scope.get("method") == "POST" and body[:1] == b"{":
-            try:
-                payload = json.loads(body)
-                if payload.get("method") == "initialize":
-                    info = payload.get("params", {}).get("clientInfo") or {}
-                    client = " ".join(str(info[k]) for k in ("name", "version") if info.get(k)) or None
-            except ValueError:
-                pass
-        mcp_settings.touch(client)
+        mcp_settings.touch(*_client_name(scope, body))
 
         async def replay() -> dict[str, Any]:
             return messages.pop(0) if messages else await receive()

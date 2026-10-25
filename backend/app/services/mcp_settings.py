@@ -18,7 +18,7 @@ DEFAULTS: dict[str, Any] = {"enabled": False}
 
 _lock = threading.Lock()
 _calls: deque[dict[str, Any]] = deque(maxlen=50)
-_last_seen: dict[str, Any] = {"at": None, "client": None}
+_last_seen: dict[str, Any] = {"at": None, "client": None, "named": False}
 
 
 def load() -> dict[str, Any]:
@@ -41,12 +41,13 @@ def enabled() -> bool:
     return bool(load()["enabled"])
 
 
-def touch(client: str | None = None) -> None:
-    """Any request that reached the endpoint while enabled."""
+def touch(client: str | None = None, named: bool = False) -> None:
+    """Any request that reached the endpoint while enabled. ``named``: the client named itself in the protocol;
+    a bare User-Agent never replaces such a name."""
     with _lock:
         _last_seen["at"] = time.time()
-        if client:
-            _last_seen["client"] = client
+        if client and (named or not _last_seen["named"]):
+            _last_seen["client"], _last_seen["named"] = client, named
 
 
 def record_call(tool: str, args: dict[str, Any], ok: bool, ms: float, error: str | None = None) -> None:

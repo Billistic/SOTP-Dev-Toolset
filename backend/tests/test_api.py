@@ -215,3 +215,15 @@ def test_mcp_rejects_foreign_host(mcp_on):
     r = mcp_on.post("/mcp", headers={**MCP_HEADERS, "Host": "evil.example:8000"},
                     json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
     assert r.status_code in (403, 421)
+
+
+def test_mcp_client_name_sources():
+    from app.mcp_server import _client_name
+    from mcp_types import CLIENT_INFO_META_KEY
+    ua = {"headers": [(b"user-agent", b"curl/8")]}
+    init = json.dumps({"method": "initialize", "params": {"clientInfo": {"name": "cursor", "version": "1"}}}).encode()
+    meta = json.dumps({"method": "tools/list", "params": {"_meta": {CLIENT_INFO_META_KEY: {"name": "claude-code"}}}}).encode()
+    assert _client_name(ua, init) == ("cursor 1", True)
+    assert _client_name(ua, meta) == ("claude-code", True)
+    assert _client_name(ua, b'{"method":"tools/list"}') == ("curl/8", False)
+    assert _client_name({}, b"") == (None, False)
