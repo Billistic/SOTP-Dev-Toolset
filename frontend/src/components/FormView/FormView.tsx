@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronsDownUp, ChevronsUpDown, Crosshair, Scale } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, Crosshair, LayoutGrid, ListTree, Scale } from 'lucide-react'
 import { entitiesApi } from '@/api/entities'
 import { BlockBody } from '@/components/BlockBody/BlockBody'
 import { FieldRow } from '@/components/FieldRow/FieldRow'
@@ -8,7 +8,9 @@ import { FormSection } from '@/components/FormSection/FormSection'
 import { useUiStore } from '@/store/useUiStore'
 import { findNode, isBlock, statValue } from '@/utils/tree'
 import { fmtNum, humanKey } from '@/utils/format'
-import { GROUP_ORDER, planForm, tileStats } from '@/utils/formPlan'
+import { TileList, type ListCard } from '@/components/TileList/TileList'
+import { TileStack, type StackCard } from '@/components/TileStack/TileStack'
+import { GROUP_ORDER, estimateRows, planForm, tileStats } from '@/utils/formPlan'
 import type { EditChange, EntityDetail, FieldSpec } from '@/types/api'
 import styles from './FormView.module.css'
 
@@ -34,6 +36,8 @@ export function FormView({ entity, onEdit, busy }: Props) {
   const toggleGroup = useUiStore((s) => s.toggleGroup)
   const setGroups = useUiStore((s) => s.setGroups)
   const setEditorMode = useUiStore((s) => s.setEditorMode)
+  const formLayout = useUiStore((s) => s.formLayout)
+  const setFormLayout = useUiStore((s) => s.setFormLayout)
   const weaponCount = root.filter((n) => n.k === 'Weapon').length
   const carriesWeapons = weaponCount > 0 || root.some((n) => n.k === 'NumWeapons')
   const { data: layout } = useQuery({ queryKey: ['entity', entity.name, 'layout'], queryFn: () => entitiesApi.layout(entity.name), placeholderData: (p) => p })
@@ -78,6 +82,51 @@ export function FormView({ entity, onEdit, busy }: Props) {
     </FormSection>
   )
 
+  // every tile as a card: key, expanded size (for even columns), jump-list title and the tile itself
+  const cards: (StackCard & ListCard)[] = []
+  if (grammar) {
+    for (const t of tiles) {
+      if (t.kind === 'weapons') { cards.push({ key: t.key, title: WEAPONS, weight: weaponCount + 2, node: weaponsTile(t.key) }); continue }
+      const stats = tileStats(t.items)
+      cards.push({
+        key: t.key, title: t.title, warn: stats.warn, weight: estimateRows(t.items),
+        node: (
+          <FormSection title={t.title} subtitle={t.subtitle} count={stats.present} balanceCount={stats.balance} warnCount={stats.warn}
+                       collapsed={collapsed.includes(t.key)} onToggle={() => toggleGroup(t.key)}>
+            <BlockBody items={t.items} entityType={entity.entityType} onEdit={onEdit} busy={busy} removableBlocks={t.kind === 'repeat'} />
+          </FormSection>
+        ),
+      })
+    }
+  } else {
+    for (const g of fallbackGroups) {
+      cards.push({
+        key: g.name, title: g.name, weight: g.fields.length,
+        node: (
+          <FormSection title={g.name} count={g.fields.length} balanceCount={g.fields.filter((f) => f.spec.balance).length}
+                       collapsed={collapsed.includes(g.name)} onToggle={() => toggleGroup(g.name)}>
+            {g.fields.map((f) => (
+              <FieldRow key={f.path} spec={f.spec} path={f.path} raw={f.raw} entityType={entity.entityType} onCommit={commit(f.path)} busy={busy} />
+            ))}
+          </FormSection>
+        ),
+      })
+    }
+    if (carriesWeapons) cards.push({ key: WEAPONS, title: WEAPONS, weight: weaponCount + 2, node: weaponsTile(WEAPONS) })
+    if (others.length) {
+      cards.push({
+        key: OTHERS, title: OTHERS, weight: others.length,
+        node: (
+          <FormSection title={OTHERS} count={others.length} collapsed={collapsed.includes(OTHERS)} onToggle={() => toggleGroup(OTHERS)}>
+            {others.map((n) => (
+              <FieldRow key={n.k} spec={genericSpec(n.k)} path={n.k} raw={n.v} entityType={entity.entityType} onCommit={commit(n.k)} busy={busy} />
+            ))}
+          </FormSection>
+        ),
+      })
+    }
+  }
+
   return (
     <div className={styles.root}>
       {names.length === 0 && <p className={styles.hint}>No fields to show for {entity.entityType}; use the Tree view.</p>}
@@ -91,40 +140,23 @@ export function FormView({ entity, onEdit, busy }: Props) {
               </span>
             )}
           </span>
+          <div className={styles.seg} role="group" aria-label="Layout">
+            {([['columns', 'Columns', LayoutGrid, 'Tiles in columns, packed without gaps'],
+               ['list', 'List', ListTree, 'One column with a jump list of sections']] as const).map(([m, l, Icon, tip]) => (
+              <button key={m} type="button" data-active={formLayout === m || undefined} onClick={() => setFormLayout(m)} title={tip}>
+                <Icon size={12} /> {l}
+              </button>
+            ))}
+          </div>
           <button type="button" className={styles.toolBtn} onClick={() => setGroups(names, !allCollapsed)} title={allCollapsed ? 'Expand all sections' : 'Collapse all sections'}>
             {allCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
             {allCollapsed ? 'Expand all' : 'Collapse all'}
           </button>
         </div>
       )}
-      <div className={styles.columns}>
-        {grammar && tiles.map((t) => {
-          if (t.kind === 'weapons') return weaponsTile(t.key)
-          const stats = tileStats(t.items)
-          return (
-            <FormSection key={t.key} title={t.title} subtitle={t.subtitle} count={stats.present} balanceCount={stats.balance} warnCount={stats.warn}
-                         collapsed={collapsed.includes(t.key)} onToggle={() => toggleGroup(t.key)}>
-              <BlockBody items={t.items} entityType={entity.entityType} onEdit={onEdit} busy={busy} removableBlocks={t.kind === 'repeat'} />
-            </FormSection>
-          )
-        })}
-        {!grammar && fallbackGroups.map((g) => (
-          <FormSection key={g.name} title={g.name} count={g.fields.length} balanceCount={g.fields.filter((f) => f.spec.balance).length}
-                       collapsed={collapsed.includes(g.name)} onToggle={() => toggleGroup(g.name)}>
-            {g.fields.map((f) => (
-              <FieldRow key={f.path} spec={f.spec} path={f.path} raw={f.raw} entityType={entity.entityType} onCommit={commit(f.path)} busy={busy} />
-            ))}
-          </FormSection>
-        ))}
-        {!grammar && carriesWeapons && weaponsTile(WEAPONS)}
-        {!grammar && others.length > 0 && (
-          <FormSection title={OTHERS} count={others.length} collapsed={collapsed.includes(OTHERS)} onToggle={() => toggleGroup(OTHERS)}>
-            {others.map((n) => (
-              <FieldRow key={n.k} spec={genericSpec(n.k)} path={n.k} raw={n.v} entityType={entity.entityType} onCommit={commit(n.k)} busy={busy} />
-            ))}
-          </FormSection>
-        )}
-      </div>
+      {formLayout === 'list'
+        ? <TileList cards={cards} collapsed={collapsed} onExpand={toggleGroup} />
+        : <TileStack cards={cards} collapsed={collapsed} />}
       {layout && !layout.known && <p className={styles.hint}>{entity.entityType} is not in the Rebellion grammar tables; only the curated fields and top-level values are shown here - use the Tree view for the rest.</p>}
     </div>
   )

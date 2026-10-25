@@ -23,6 +23,7 @@
 
 .control { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
 .text, .num { width: 100%; max-width: 360px; }
+.text { flex: 1 1 160px; width: auto; min-width: 0; }   /* shrinks so the picker / open buttons stay on the same line */
 .num { max-width: 140px; font-family: var(--font-mono); text-align: right; }
 .text { font-family: var(--font-mono); font-size: 12px; }
 input[data-dirty] { border-color: var(--modified); }

@@ -165,7 +165,51 @@ export function planForm(layout: EntityLayout, resolved: Resolved[], carriesWeap
   }
   for (const t of extras) if (!GROUP_ORDER.includes(t.group)) tiles.push(t)
   for (const t of tiles) if (t.kind === 'repeat') t.subtitle = `× ${t.items.filter((x) => x.type === 'block').length}`
+  for (const t of tiles) t.items = mergeIndexed(t.items)
   return tiles
+}
+
+/**
+ * Runs of numbered numbers (squadAntiMatterCost:0..3) become one row of cells, like Level:0..3 blocks.
+ * Only complete, valid, present runs starting at 0 are merged; anything else keeps its own rows.
+ */
+export function mergeIndexed(items: Item[]): Item[] {
+  const out: Item[] = []
+  const indexOf = (it: Item, base?: string): number | null => {
+    if (it.type !== 'slot' || !it.slot.present || it.slot.invalid || (it.slot.kind !== 'int' && it.slot.kind !== 'float')) return null
+    const m = /^(.+):(\d+)$/.exec(it.slot.key)
+    return m && (base === undefined || m[1] === base) ? Number(m[2]) : null
+  }
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]
+    if (it.type === 'block') { out.push({ ...it, items: mergeIndexed(it.items) }); continue }
+    if (indexOf(it) !== 0) { out.push(it); continue }
+    const first = it as SlotItem
+    const base = first.slot.key.slice(0, first.slot.key.lastIndexOf(':'))
+    let j = i + 1
+    while (j < items.length && indexOf(items[j], base) === j - i) j++
+    if (j - i < 2) { out.push(it); continue }
+    const run = items.slice(i, j) as SlotItem[]
+    out.push({
+      type: 'slot', spec: first.spec, label: labelFor(base),
+      slot: { ...first.slot, key: base, kind: 'levels', values: run.map((r, n) => ({ key: `Level:${n}`, path: r.slot.path, present: true, raw: r.slot.raw, legacy: false })) },
+    })
+    i = j - 1
+  }
+  return out
+}
+
+/** Rough height of a tile's rows when expanded (one unit per row), so tiles can be spread over columns evenly. */
+export function estimateRows(items: Item[]): number {
+  let rows = 0, optional = false
+  for (const it of items) {
+    if (it.type === 'block') { rows += 1.2 + estimateRows(it.items); continue }
+    if (it.type === 'unknown') { rows += 1; continue }
+    const s = it.slot
+    if (!s.present && !s.required && s.kind !== 'count') { optional = true; continue }
+    rows += s.ref === 'string' && s.present ? 1.6 : 1
+  }
+  return rows + (optional ? 1 : 0)
 }
 
 /** Counts shown on a tile header: present rows, balance-flagged rows, problems (missing required / unknown / invalid). */
