@@ -34,10 +34,23 @@ def data_dir() -> Path:
     return d
 
 
+# Fixed when free, so MCP clients (http://127.0.0.1:47615/mcp) keep a working URL between launches
+PREFERRED_PORT = 47615
+
+
 def free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def pick_port() -> int:
+    try:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", PREFERRED_PORT))
+        return PREFERRED_PORT
+    except OSError:   # taken (another app, or a second instance with SOTP_ALLOW_MULTIPLE)
+        return free_port()
 
 
 def configure_environment(d: Path) -> None:
@@ -259,7 +272,7 @@ def main() -> int:
     d = data_dir()
     configure_environment(d)
     log = logging.getLogger("launcher")
-    port = int(os.environ.get("PORT") or free_port())
+    port = int(os.environ.get("PORT") or pick_port())
     url = f"http://127.0.0.1:{port}"
     code = 0
     try:

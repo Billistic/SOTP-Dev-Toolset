@@ -13,7 +13,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import catalog, entities, insights, projects, updates
+from . import mcp_server
+from .api import catalog, entities, insights, mcp, projects, updates
 from .config import settings
 from .db import SessionLocal, init_db
 from .services.project_registry import ProjectRegistry
@@ -38,15 +39,17 @@ def _seed_project_from_env() -> None:
 async def lifespan(_: FastAPI):
     init_db()
     _seed_project_from_env()
-    yield
+    async with mcp_server.running():   # the MCP transport's task group
+        yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="SOTP Dev Env v2", version=__version__, lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins) or ["*"],
                        allow_methods=["*"], allow_headers=["*"])
-    for r in (projects.router, entities.router, catalog.router, insights.router, updates.router):
+    for r in (projects.router, entities.router, catalog.router, insights.router, updates.router, mcp.router):
         app.include_router(r, prefix="/api")
+    app.router.routes.append(mcp_server.route)   # /mcp, off until enabled in Project settings
 
     @app.get("/api/health")
     def health():

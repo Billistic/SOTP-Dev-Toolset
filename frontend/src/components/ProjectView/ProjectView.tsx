@@ -9,6 +9,7 @@ import { DirectoryPicker } from '@/components/DirectoryPicker/DirectoryPicker'
 import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog'
 import { useUiStore } from '@/store/useUiStore'
 import type { Project } from '@/types/api'
+import { McpCard } from '@/components/McpCard/McpCard'
 import { UpdatesCard } from '@/components/UpdatesCard/UpdatesCard'
 import { factionColor } from '@/utils/format'
 import styles from './ProjectView.module.css'
@@ -192,6 +193,8 @@ export function ProjectView() {
           </div>
         </section>
       )}
+
+      <McpCard />
 
       <UpdatesCard />
 
