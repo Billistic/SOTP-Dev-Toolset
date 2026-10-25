@@ -1,4 +1,5 @@
 """End-to-end API tests against a temporary SQLite DB, ingesting the real corpus when present."""
+import json
 import os
 from pathlib import Path
 
@@ -141,3 +142,76 @@ def test_projects_have_separate_databases(client, mod_root, tmp_path):
     assert not project_db_path(pid).exists()
     ids = [p["id"] for p in client.get("/api/projects").json()]
     assert first in ids and pid not in ids
+
+
+# ── MCP endpoint ────────────────────────────────────────────────────────
+MCP_HEADERS = {"Host": "127.0.0.1:8000", "Accept": "application/json, text/event-stream",
+               "MCP-Protocol-Version": "2025-06-18"}
+
+
+def _rpc(client, method, params=None, rid=1):
+    r = client.post("/mcp", headers=MCP_HEADERS, json={"jsonrpc": "2.0", "id": rid, "method": method, "params": params or {}})
+    return r
+
+
+@pytest.fixture
+def mcp_on(client, tmp_path, monkeypatch):
+    from app.services import mcp_settings
+    monkeypatch.setattr(mcp_settings, "SETTINGS_FILE", tmp_path / "mcp_settings.json")
+    assert client.put("/api/mcp", json={"enabled": True}).json()["enabled"] is True
+    yield client
+    client.put("/api/mcp", json={"enabled": False})
+
+
+def test_mcp_disabled_by_default(client, tmp_path, monkeypatch):
+    from app.services import mcp_settings
+    monkeypatch.setattr(mcp_settings, "SETTINGS_FILE", tmp_path / "mcp_settings.json")
+    status = client.get("/api/mcp").json()
+    assert status["enabled"] is False and status["readOnly"] is True and status["url"].endswith("/mcp")
+    assert _rpc(client, "tools/list").status_code == 404
+
+
+def test_mcp_tools_round_trip(mcp_on):
+    c = mcp_on
+    r = _rpc(c, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                "clientInfo": {"name": "pytest-client", "version": "1"}})
+    assert r.status_code == 200, r.text
+    assert r.json()["result"]["serverInfo"]["name"] == "sotp-dev-env"
+    tools = {t["name"]: t for t in _rpc(c, "tools/list", rid=2).json()["result"]["tools"]}
+    assert set(tools) == {"project_overview", "search_entities", "get_entity", "entity_references",
+                          "list_diagnostics", "metric_table", "balance_recommendations"}
+    assert all(t["annotations"]["readOnlyHint"] for t in tools.values())
+
+    def call(name, args, rid):
+        res = _rpc(c, "tools/call", {"name": name, "arguments": args}, rid).json()["result"]
+        assert not res.get("isError"), res
+        return json.loads(res["content"][0]["text"])
+
+    overview = call("project_overview", {}, 3)
+    assert overview["project"]["name"] == "test" and overview["entityTypes"]
+    found = call("search_entities", {"entity_type": "CapitalShip", "limit": 5}, 4)
+    assert 0 < len(found["entities"]) <= 5
+    name = found["entities"][0]["name"]
+    assert call("get_entity", {"name": name}, 5)["name"] == name
+    assert "references" in call("entity_references", {"name": name}, 6)
+    assert "summary" in call("list_diagnostics", {"limit": 3}, 7)
+    table = call("metric_table", {"category": "ship", "metrics": ["dps_total", "ehp"], "sort_by": "dps_total", "limit": 5}, 8)
+    assert len(table["rows"]) <= 5 and set(table["rows"][0]) >= {"name", "dps_total", "ehp"} and "hull" not in table["rows"][0]
+    dps = [r["dps_total"] for r in table["rows"] if r["dps_total"] is not None]
+    assert dps == sorted(dps, reverse=True)
+    bad_metric = _rpc(c, "tools/call", {"name": "metric_table", "arguments": {"metrics": ["nope"]}}, 11).json()["result"]
+    assert bad_metric["isError"] and "unknown metric" in bad_metric["content"][0]["text"]
+    call("balance_recommendations", {"category": "ship"}, 9)
+
+    bad = _rpc(c, "tools/call", {"name": "get_entity", "arguments": {"name": "No_Such_Entity"}}, 10).json()["result"]
+    assert bad["isError"] and "not found" in bad["content"][0]["text"]
+
+    status = c.get("/api/mcp").json()
+    assert status["lastClient"] == "pytest-client 1"
+    assert status["calls"][0]["tool"] == "get_entity" and status["calls"][0]["ok"] is False
+
+
+def test_mcp_rejects_foreign_host(mcp_on):
+    r = mcp_on.post("/mcp", headers={**MCP_HEADERS, "Host": "evil.example:8000"},
+                    json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+    assert r.status_code in (403, 421)

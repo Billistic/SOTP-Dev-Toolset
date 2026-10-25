@@ -1,0 +1,22 @@
+.card { padding: 14px 18px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+.title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.lead { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 10px; max-width: 72ch; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: var(--font-size); cursor: pointer; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: var(--font-size); margin-top: 12px; }
+.facts dt { color: var(--text-secondary); }
+.facts dd { margin: 0; font-family: var(--font-mono); font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+.note { color: var(--text-muted); font-family: var(--font-ui); font-size: var(--font-size-sm); }
+.connect { margin-top: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.select { background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 3px 6px; font: inherit; font-size: var(--font-size); }
+.code { margin: 8px 0 4px; padding: 8px 10px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+.section { margin-top: 10px; font-size: var(--font-size); }
+.section > summary { cursor: pointer; color: var(--text-secondary); padding: 2px 0; }
+.tools, .calls { list-style: none; margin: 6px 0 8px; padding: 0; display: grid; gap: 3px; }
+.tools li { display: grid; grid-template-columns: minmax(170px, auto) 1fr; gap: 10px; }
+.calls { max-height: 220px; overflow: auto; }
+.calls li { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: baseline; }
+.calls li[data-error] code { color: var(--error); }
+.time { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+.args { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.card code { font-family: var(--font-mono); font-size: 12px; }
