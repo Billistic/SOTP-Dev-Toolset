@@ -107,7 +107,7 @@ export function EntityTree() {
           <label><input type="checkbox" checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} /> errors</label>
           <label><input type="checkbox" checked={onlyDirty} onChange={(e) => setOnlyDirty(e.target.checked)} /> unsaved</label>
           <span className={styles.spacer} />
-          <button type="button" className={styles.newBtn} onClick={() => setCreating(true)} title="New entity (copy of an existing one)"><Plus size={13} /> New</button>
+          <button type="button" className={styles.newBtn} onClick={() => setCreating(true)} title="New entity (a copy of an existing one, or built from its definition)"><Plus size={13} /> New</button>
         </div>
       </div>
       {creating && <NewEntityDialog onClose={() => setCreating(false)} />}

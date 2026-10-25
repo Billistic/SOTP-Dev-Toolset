@@ -129,7 +129,7 @@ class Grammar:
                     st = g._structure(el)
                     g.structures.setdefault(st.name, st)
                 elif tag == "element_rule":
-                    g.enums[el.get("name")] = _values(el)
+                    g.enums[el.get("name")] = _values(el) or _attr_values(el)
                 elif tag == "condition_field":
                     g.condition_fields[el.get("name")] = g._condition_field(el)
         for el in extensions:   # additions to existing structures (see defs/zz_rebellion_1_8.xml)
@@ -211,7 +211,7 @@ class Grammar:
         f = GField(el.get("name"), required=_req(el), help=_help(el), legacy=_legacy(el))
         kind, ref = _VALIDATION.get(el.get("validation") or "", ("string", None))
         f.kind, f.ref = kind, ref
-        inline = _values(el) or tuple(v.strip() for v in (el.get("values") or "").split(",") if v.strip())
+        inline = _values(el) or _attr_values(el)
         if inline:
             f.kind, f.values = "enum", inline
         f.enum = el.get("type")   # resolved lazily: an element_rule (enum) or a top-level condition_field
@@ -264,6 +264,97 @@ class Grammar:
         walker.walk(st.items, doc.root, "", root)
         return walker.node_kinds
 
+    # ── building from the definition (issue #19) ────────────────────────
+    def entity_types(self) -> list[str]:
+        """The .entity types the grammar can build from scratch."""
+        return [t for t in ENTITY_TYPES if t in self.structures]
+
+    def skeleton(self, entity_type: str, archive_version: int = 194) -> str:
+        """
+        A complete new file for ``entity_type``: the TXT2 header, then every non-legacy item in grammar order with
+        a default value - enums take their first real value, condition fields their first branch, counts 0.
+        """
+        st = self.entity(entity_type)
+        if st is None or entity_type not in ENTITY_TYPES:
+            raise KeyError(entity_type)
+        walker = _Walker(self)
+        lines = ["TXT2", f"SinsArchiveVersion {archive_version}", f'entityType "{entity_type}"']
+        for item in _unique(st.items):
+            t = walker.template_for(item)
+            if t:
+                lines.append(t)
+        return "\n".join(lines) + "\n"
+
+    def condition_at(self, doc: Document, path: str) -> GConditionField | None:
+        """The condition field the grammar expects at ``path`` in ``doc`` (None when that node is not one)."""
+        st = self.entity(doc.entity_type)
+        if st is None:
+            return None
+        walker = _Walker(self)
+        walker.walk(st.items, doc.root, "", walker.section("", "", st.name, required=True, present=True))
+        return walker.conditions.get(path)
+
+    def branch_swap(self, doc: Document, path: str, value: str) -> tuple[Node, list[Node], list[list[Node] | str]]:
+        """
+        Plan for switching the condition field at ``path`` to ``value``: (the condition node, the nodes of the
+        current branch that follow it, the new branch in order - old nodes to keep or a text template to insert).
+        An item the new branch shares with the old one keeps its value (a nested condition keeps its own fields).
+        """
+        cf = self.condition_at(doc, path)
+        node = doc.get_path(path)
+        if cf is None or node is None or node.is_block:
+            raise ValueError(f"'{path}' is not a condition field")
+        new = cf.branch(value)
+        if new is None:
+            raise ValueError(f"'{value}' is not an option of {cf.name}")
+        old = cf.branch(_token_text(node))
+        kids = node.parent.live_children()
+        start = kids.index(node) + 1
+        run = kids[start:self._span(old.items, kids, start)] if old is not None else []
+        walker = _Walker(self)
+        used: set[int] = set()
+        plan: list[list[Node] | str] = []
+        for raw_item in _unique(new.items):
+            item = self.resolve(raw_item)
+            at = next((i for i, n in enumerate(run) if i not in used and _norm(n.key) == _norm(item.name)), None)
+            if at is not None and (isinstance(item, (GConditionField, GIterative))
+                                   or run[at].is_block == isinstance(item, (GStructure, GStructureRef))):
+                end = self._span([item], run, at)
+                used.update(range(at, end))
+                plan.append(run[at:end])
+                continue
+            t = walker.template_for(item)
+            if t:
+                plan.append(t)
+        return node, run, plan
+
+    def _span(self, items: list[Any], kids: list[Node], j: int) -> int:
+        """Index just past the siblings from ``kids[j]`` that ``items`` account for, matched in grammar order."""
+        for raw_item in items:
+            item = self.resolve(raw_item)
+            name = getattr(item, "name", None)
+            if not name or j >= len(kids) or _norm(kids[j].key) != _norm(name):
+                continue   # absent in this file
+            j += 1
+            if isinstance(item, GConditionField):
+                br = item.branch(_token_text(kids[j - 1]))
+                if br is not None:
+                    j = self._span(br.items, kids, j)
+            elif isinstance(item, GIterative) and item.item is not None:
+                inner = self.resolve(item.item)
+                while j < len(kids) and _norm(kids[j].key) == _norm(inner.name):
+                    j = self._span([inner], kids, j)
+        return j
+
+
+# the entityType values of .entity files; the other top-level structures are shared blocks or other data files
+ENTITY_TYPES = (
+    "Ability", "Buff", "CannonShell", "CapitalShip", "EntryVehicle", "Fighter", "Frigate", "PipCloud", "Planet",
+    "PlanetBonus", "PlanetModuleHangarDefense", "PlanetModuleRefinery", "PlanetModuleShipFactory", "PlanetModuleStandard",
+    "PlanetModuleTradePort", "PlanetModuleWeaponDefense", "Player", "Quest", "ResearchSubject", "ResourceAsteroid",
+    "SpaceMine", "Squad", "Star", "StarBase", "StarBaseUpgrade", "Titan", "TitanUpgrade",
+)
+
 
 @dataclass(slots=True)
 class GConditionRefPlaceholder:
@@ -284,6 +375,7 @@ class _Walker:
         self._seen: list[set[str]] = []                                          # keys already consumed per frame
         self._shared: list[set[str]] = []                                        # item keys used by >1 iterative in the current item list
         self.node_kinds: dict[int, str] = {}                                     # id(node) -> ref kind, for the reference extractor
+        self.conditions: dict[str, GConditionField] = {}                         # path of a present condition node -> its definition
 
     # ── sections ────────────────────────────────────────────────────────
     def section(self, path: str, parent: str, title: str, *, required: bool, present: bool, subtitle: str | None = None,
@@ -389,6 +481,8 @@ class _Walker:
         }
         if n is not None and branch is None:
             slot["invalid"] = True
+        if n is not None:
+            self.conditions[slot["path"]] = cf
         self.cur["slots"].append(slot)
         if branch is not None:   # the chosen value's own fields follow in the same section
             self._walk_items(branch.items, node, path)
@@ -467,7 +561,7 @@ class _Walker:
         if isinstance(item, GConditionField):
             first = item.conditions[0] if item.conditions else None
             lines = [f"{ind}{item.name} {_enum_default(item.values)}"]
-            for sub in (first.items if first else []):
+            for sub in _unique(first.items if first else []):
                 t = self.template_for(sub, depth)
                 if t:
                     lines.append(t)
@@ -475,9 +569,7 @@ class _Walker:
         if isinstance(item, (GStructure, GStructureRef)):
             st = self.g.structure_of(item)
             lines = [f"{ind}{item.name}"]
-            for sub in (st.items if st else []):
-                if getattr(sub, "legacy", False):
-                    continue
+            for sub in _unique(st.items if st else []):
                 t = self.template_for(sub, depth + 1)
                 if t:
                     lines.append(t)
@@ -522,6 +614,11 @@ def _help(el: ET.Element) -> str | None:
 
 def _values(el: ET.Element) -> tuple[str, ...]:
     return tuple((c.text or "").strip() for c in el if _tag(c) == "value" and not _skip(c) and (c.text or "").strip())
+
+
+def _attr_values(el: ET.Element) -> tuple[str, ...]:
+    """The other spelling of a value list: values="PerPlayer,ForAllPlayers"."""
+    return tuple(v.strip() for v in (el.get("values") or "").split(",") if v.strip())
 
 
 def _norm(key: str) -> str:
@@ -569,7 +666,23 @@ def _discriminator(node: Node) -> str | None:
 
 
 def _enum_default(values: tuple[str, ...]) -> str:
-    return f'"{values[0]}"' if values else '""'
+    """The first real option: "Invalid" heads several enums but is never what a new file wants."""
+    real = [v for v in values if v.lower() != "invalid"] or list(values)
+    return f'"{real[0]}"' if real else '""'
+
+
+def _unique(items: list[Any]) -> list[Any]:
+    """Non-legacy items, each key once: the tables list some keys twice (per-version variants)."""
+    seen: set[str] = set()
+    out: list[Any] = []
+    for it in items:
+        name = getattr(it, "name", None)
+        if getattr(it, "legacy", False) or (name and _norm(name) in seen):
+            continue
+        if name:
+            seen.add(_norm(name))
+        out.append(it)
+    return out
 
 
 def _field_template(f: GField) -> str:

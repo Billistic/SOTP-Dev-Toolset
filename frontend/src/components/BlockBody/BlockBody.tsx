@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { AlertTriangle, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { FieldRow } from '@/components/FieldRow/FieldRow'
 import { LevelsRow } from '@/components/LevelsRow/LevelsRow'
 import { SubBlock } from '@/components/SubBlock/SubBlock'
+import { useUiStore } from '@/store/useUiStore'
 import type { Item, SlotItem } from '@/utils/formPlan'
 import type { EditChange, FieldSpec } from '@/types/api'
 import styles from './BlockBody.module.css'
@@ -14,7 +15,10 @@ interface Props {
   busy?: boolean
   depth?: number
   removableBlocks?: boolean   // items of a repeated block can be removed whole
+  parent?: string             // path of the block these rows belong to: free mode can add any key there
 }
+
+const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*(:[A-Za-z0-9_]+)?$/
 
 const SPEC_KIND: Record<string, FieldSpec['kind']> = { bool: 'bool', int: 'int', float: 'float', enum: 'enum', ref: 'ref', color: 'color', position: 'array', coordinate: 'array', orientation: 'array', string: 'string' }
 
@@ -23,11 +27,21 @@ const SPEC_KIND: Record<string, FieldSpec['kind']> = { bool: 'bool', int: 'int',
  * flagged with "add", missing optional ones behind a toggle, nested blocks as collapsible sub-blocks,
  * and keys the grammar does not know marked and removable.
  */
-export function BlockBody({ items, entityType, onEdit, busy, depth = 0, removableBlocks }: Props) {
+export function BlockBody({ items, entityType, onEdit, busy, depth = 0, removableBlocks, parent }: Props) {
+  const free = useUiStore((s) => s.formMode === 'free')
   const [showOptional, setShowOptional] = useState(false)
   const optional = items.filter((it): it is SlotItem => it.type === 'slot' && !it.slot.present && !it.slot.required && it.slot.kind !== 'count')
   const visible = items.filter((it) => it.type !== 'slot' || it.slot.present || it.slot.required || it.slot.kind === 'count' || showOptional)
   const set = (path: string) => (value: unknown) => onEdit([{ op: 'set', path, value }])
+  // each option of a condition field implies its own fields: guided mode swaps them in with the value
+  // (free mode, or a value that is not an option, just sets it)
+  const choose = (slot: SlotItem['slot']) => (value: unknown) =>
+    onEdit([{ op: !free && slot.options?.includes(String(value)) ? 'switch' : 'set', path: slot.path, value }])
+  // rows already in the file, in order: where a free-form field can go
+  const present = items.flatMap((it) =>
+    it.type === 'block' ? [{ path: it.section.path, label: it.label }]
+    : it.type === 'unknown' ? [{ path: it.u.path, label: it.u.key }]
+    : it.slot.present && !it.slot.readonly ? [{ path: it.slot.path, label: it.label }] : [])
 
   return (
     <div className={styles.body}>
@@ -97,7 +111,7 @@ export function BlockBody({ items, entityType, onEdit, busy, depth = 0, removabl
         }
         const help = [spec?.help, slot.help, slot.switch ? 'Its value decides which fields follow.' : null, slot.legacy ? 'Legacy field (pre-Rebellion).' : null].filter(Boolean).join('\n') || null
         return (
-          <FieldRow key={slot.path} path={slot.path} raw={slot.raw ?? undefined} entityType={entityType} busy={busy} onCommit={set(slot.path)}
+          <FieldRow key={slot.path} path={slot.path} raw={slot.raw ?? undefined} entityType={entityType} busy={busy} onCommit={slot.switch ? choose(slot) : set(slot.path)}
                     options={slot.options ?? undefined} invalid={slot.invalid} strict={slot.kind === 'int' || slot.kind === 'float' ? slot.kind : undefined}
                     spec={{ label: slot.switch ? `${label} ▸` : label, kind: spec?.kind === 'stat' ? SPEC_KIND[slot.kind] ?? 'float' : spec?.kind ?? SPEC_KIND[slot.kind] ?? 'string',
                             ref: slot.ref ?? spec?.ref ?? null, enum: slot.enum ?? spec?.enum ?? null, unit: spec?.unit ?? null, help, balance: spec?.balance ?? false }} />
@@ -109,6 +123,39 @@ export function BlockBody({ items, entityType, onEdit, busy, depth = 0, removabl
           {showOptional ? 'Hide' : 'Show'} {optional.length} optional field{optional.length === 1 ? '' : 's'} not set
         </button>
       )}
+      {free && parent !== undefined && <CustomField parent={parent} present={present} onEdit={onEdit} busy={busy} />}
+    </div>
+  )
+}
+
+/** Free mode: any key and raw value, placed after a chosen row of this block (outside the definition, so it is flagged as unknown). */
+function CustomField({ parent, present, onEdit, busy }: { parent: string; present: { path: string; label: string }[]; onEdit: (c: EditChange[]) => void; busy?: boolean }) {
+  const [key, setKey] = useState('')
+  const [value, setValue] = useState('')
+  const [after, setAfter] = useState<string | null>(null)
+  const at = after !== null && present.some((p) => p.path === after) ? after : present[present.length - 1]?.path ?? ''
+  const keyOk = KEY_RE.test(key.trim())
+  const add = () => {
+    if (!keyOk || busy) return
+    onEdit([{ op: 'insertText', parent, text: `${key.trim()} ${value.trim() || '""'}`, after: at || null }])
+    setKey('')
+    setValue('')
+  }
+  const enter = (e: KeyboardEvent) => { if (e.key === 'Enter') add() }
+  return (
+    <div className={styles.custom}>
+      <input type="text" className={styles.customKey} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={enter}
+             placeholder="any key" spellCheck={false} aria-label="Field key" aria-invalid={key !== '' && !keyOk} />
+      <input type="text" className={styles.customValue} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={enter}
+             placeholder='value as in the file: "Name", 5, 0.5, TRUE' spellCheck={false} aria-label="Field value" />
+      {present.length > 0 && (
+        <select className={styles.customAfter} value={at} onChange={(e) => setAfter(e.target.value)} aria-label="Insert after" title="Insert after">
+          {present.map((p) => <option key={p.path} value={p.path}>after {p.label}</option>)}
+        </select>
+      )}
+      <button type="button" className={styles.add} disabled={!keyOk || busy} onClick={add} title="Add this field (not in the definition: it will be flagged as unknown)">
+        <Plus size={12} /> field
+      </button>
     </div>
   )
 }

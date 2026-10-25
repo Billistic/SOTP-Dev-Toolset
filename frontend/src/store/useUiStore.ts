@@ -16,6 +16,8 @@ export type EditorMode = 'form' | 'tree' | 'raw' | 'weapons' | 'references' | 'p
 export type Theme = 'dark' | 'light' | 'system'
 /** Form tab arrangement: tiles in independent columns, or one column with a jump list (Unreal Details style). */
 export type FormLayout = 'columns' | 'list'
+/** Form tab: 'guided' follows the definition (options swap their fields in); 'free' also takes any key and leaves options alone. */
+export type FormMode = 'guided' | 'free'
 
 /** Views whose sidebar carries something useful; the rest are full-width workspaces. */
 const SIDEBAR_VIEWS: ReadonlySet<ActivityView> = new Set(['explorer', 'diagnostics', 'project'])
@@ -32,6 +34,7 @@ interface UiState {
   collapsedGroups: string[]
   theme: Theme
   formLayout: FormLayout
+  formMode: FormMode
   setActivity: (v: ActivityView) => void
   toggleSidebar: () => void
   setSidebarWidth: (w: number) => void
@@ -47,6 +50,7 @@ interface UiState {
   setGroups: (keys: string[], collapsed: boolean) => void
   setTheme: (t: Theme) => void
   setFormLayout: (l: FormLayout) => void
+  setFormMode: (m: FormMode) => void
 }
 
 export const useUiStore = create<UiState>()(
@@ -63,6 +67,7 @@ export const useUiStore = create<UiState>()(
       collapsedGroups: [],
       theme: 'dark',
       formLayout: 'columns',
+      formMode: 'guided',
 
       setActivity: (activity) => {
         const s = get()
@@ -104,10 +109,11 @@ export const useUiStore = create<UiState>()(
         set((s) => ({ collapsedGroups: collapsed ? Array.from(new Set([...s.collapsedGroups, ...keys])) : s.collapsedGroups.filter((k) => !keys.includes(k)) })),
       setTheme: (theme) => set({ theme }),
       setFormLayout: (formLayout) => set({ formLayout }),
+      setFormMode: (formMode) => set({ formMode }),
     }),
     {
       name: 'sotp-ui',
-      partialize: (s) => ({ sidebarWidth: s.sidebarWidth, bottomHeight: s.bottomHeight, tabs: s.tabs, activeTab: s.activeTab, collapsedGroups: s.collapsedGroups, theme: s.theme, formLayout: s.formLayout }),
+      partialize: (s) => ({ sidebarWidth: s.sidebarWidth, bottomHeight: s.bottomHeight, tabs: s.tabs, activeTab: s.activeTab, collapsedGroups: s.collapsedGroups, theme: s.theme, formLayout: s.formLayout, formMode: s.formMode }),
     },
   ),
 )
