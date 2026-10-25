@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fmtNum } from '@/utils/format'
 import { isEnter, isEscape } from '@/utils/keys'
 import type { EditChange, EntityDetail, WeaponRow } from '@/types/api'
@@ -64,6 +64,7 @@ export function WeaponTable({ entity, onEdit, busy }: Props) {
 
 function Cell({ value, onCommit, busy }: { value: number; onCommit: (v: number) => void; busy?: boolean }) {
   const [draft, setDraft] = useState(String(value))
+  useEffect(() => { setDraft(String(value)) }, [value])   // follow edits made in the weapon cards / other views
   const dirty = draft !== String(value)
   const commit = () => {
     if (!dirty) return
