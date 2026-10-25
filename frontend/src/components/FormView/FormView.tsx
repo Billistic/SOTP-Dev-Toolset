@@ -34,6 +34,8 @@ export function FormView({ entity, onEdit, busy }: Props) {
   const toggleGroup = useUiStore((s) => s.toggleGroup)
   const setGroups = useUiStore((s) => s.setGroups)
   const setEditorMode = useUiStore((s) => s.setEditorMode)
+  const formMode = useUiStore((s) => s.formMode)
+  const setFormMode = useUiStore((s) => s.setFormMode)
   const weaponCount = root.filter((n) => n.k === 'Weapon').length
   const carriesWeapons = weaponCount > 0 || root.some((n) => n.k === 'NumWeapons')
   const { data: layout } = useQuery({ queryKey: ['entity', entity.name, 'layout'], queryFn: () => entitiesApi.layout(entity.name), placeholderData: (p) => p })
@@ -91,6 +93,14 @@ export function FormView({ entity, onEdit, busy }: Props) {
               </span>
             )}
           </span>
+          {grammar && (
+            <div className={styles.seg} role="group" aria-label="Definition mode">
+              {([['guided', 'Guided', 'Follow the definition: only its fields can be added, and choosing an option brings in the fields it needs'],
+                 ['free', 'Free', 'Ignore the definition: add any field anywhere; choosing an option only changes its value. Unknown fields are still flagged']] as const).map(([m, l, tip]) => (
+                <button key={m} type="button" data-active={formMode === m || undefined} onClick={() => setFormMode(m)} title={tip}>{l}</button>
+              ))}
+            </div>
+          )}
           <button type="button" className={styles.toolBtn} onClick={() => setGroups(names, !allCollapsed)} title={allCollapsed ? 'Expand all sections' : 'Collapse all sections'}>
             {allCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
             {allCollapsed ? 'Expand all' : 'Collapse all'}
@@ -104,7 +114,7 @@ export function FormView({ entity, onEdit, busy }: Props) {
           return (
             <FormSection key={t.key} title={t.title} subtitle={t.subtitle} count={stats.present} balanceCount={stats.balance} warnCount={stats.warn}
                          collapsed={collapsed.includes(t.key)} onToggle={() => toggleGroup(t.key)}>
-              <BlockBody items={t.items} entityType={entity.entityType} onEdit={onEdit} busy={busy} removableBlocks={t.kind === 'repeat'} />
+              <BlockBody items={t.items} entityType={entity.entityType} onEdit={onEdit} busy={busy} removableBlocks={t.kind === 'repeat'} parent={t.parent} />
             </FormSection>
           )
         })}

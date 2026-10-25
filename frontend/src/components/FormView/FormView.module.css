@@ -44,3 +44,9 @@
 .weapons .btn { align-self: flex-start; margin-top: 4px; }
 
 .grammarNote { color: var(--text-muted); margin-left: 6px; }
+
+.seg { display: inline-flex; flex-shrink: 0; margin-left: auto; border: 1px solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { padding: 3px 10px; white-space: nowrap; font-size: var(--font-size-sm); color: var(--text-secondary); border-right: 1px solid var(--border-subtle); }
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--text-primary); }
+.seg button[data-active] { background: var(--bg-active); color: var(--text-primary); }

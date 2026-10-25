@@ -14,6 +14,8 @@ export const tabId = (t: Tab) => (t.kind === 'entity' ? `entity:${t.name}` : `vi
 
 export type EditorMode = 'form' | 'tree' | 'raw' | 'weapons' | 'references' | 'peers' | 'buffs'
 export type Theme = 'dark' | 'light' | 'system'
+/** Form tab: 'guided' follows the definition (options swap their fields in); 'free' also takes any key and leaves options alone. */
+export type FormMode = 'guided' | 'free'
 
 /** Views whose sidebar carries something useful; the rest are full-width workspaces. */
 const SIDEBAR_VIEWS: ReadonlySet<ActivityView> = new Set(['explorer', 'diagnostics', 'project'])
@@ -29,6 +31,7 @@ interface UiState {
   editorMode: EditorMode
   collapsedGroups: string[]
   theme: Theme
+  formMode: FormMode
   setActivity: (v: ActivityView) => void
   toggleSidebar: () => void
   setSidebarWidth: (w: number) => void
@@ -43,6 +46,7 @@ interface UiState {
   toggleGroup: (key: string) => void
   setGroups: (keys: string[], collapsed: boolean) => void
   setTheme: (t: Theme) => void
+  setFormMode: (m: FormMode) => void
 }
 
 export const useUiStore = create<UiState>()(
@@ -58,6 +62,7 @@ export const useUiStore = create<UiState>()(
       editorMode: 'form',
       collapsedGroups: [],
       theme: 'dark',
+      formMode: 'guided',
 
       setActivity: (activity) => {
         const s = get()
@@ -98,10 +103,11 @@ export const useUiStore = create<UiState>()(
       setGroups: (keys, collapsed) =>
         set((s) => ({ collapsedGroups: collapsed ? Array.from(new Set([...s.collapsedGroups, ...keys])) : s.collapsedGroups.filter((k) => !keys.includes(k)) })),
       setTheme: (theme) => set({ theme }),
+      setFormMode: (formMode) => set({ formMode }),
     }),
     {
       name: 'sotp-ui',
-      partialize: (s) => ({ sidebarWidth: s.sidebarWidth, bottomHeight: s.bottomHeight, tabs: s.tabs, activeTab: s.activeTab, collapsedGroups: s.collapsedGroups, theme: s.theme }),
+      partialize: (s) => ({ sidebarWidth: s.sidebarWidth, bottomHeight: s.bottomHeight, tabs: s.tabs, activeTab: s.activeTab, collapsedGroups: s.collapsedGroups, theme: s.theme, formMode: s.formMode }),
     },
   ),
 )

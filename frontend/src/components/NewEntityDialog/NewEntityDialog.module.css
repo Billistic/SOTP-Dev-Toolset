@@ -6,3 +6,8 @@
 .hint { font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 4px; }
 .err { font-size: var(--font-size-sm); color: var(--error); margin-top: 4px; }
 .spacer { flex: 1; }
+.seg { display: inline-flex; justify-self: start; border: 1px solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { padding: 4px 12px; font-size: var(--font-size-sm); color: var(--text-secondary); border-right: 1px solid var(--border-subtle); }
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--text-primary); }
+.seg button[data-active] { background: var(--bg-active); color: var(--text-primary); }

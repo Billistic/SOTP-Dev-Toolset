@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.sins import parse
-from app.sins.grammar import Grammar, grammar
+from app.sins.grammar import ENTITY_TYPES, Grammar, grammar
 from app.sins.schemas.references import extract_references, reference_kinds
 
 
@@ -99,3 +99,19 @@ def test_grammar_feeds_reference_kinds(g, gameinfo):
     # curated tables keep precedence: musicTheme is a music track even though the grammar calls it a Sound
     player = parse('TXT\nentityType "Player"\nmusicThemeData\n\tmusicThemeCount 1\n\tmusicTheme "MUSIC_X"\n')
     assert {r.key: r.kind for r in extract_references(player)}["musicTheme"] == "music"
+
+
+def test_skeletons_match_their_own_definition(g):
+    """Every buildable type's new file lays out with nothing unknown, invalid or missing."""
+    assert g.entity_types() == list(ENTITY_TYPES)
+    assert g.enums["buffStackingLimitType"] == ("PerPlayer", "ForAllPlayers")   # values="a,b" spelling
+    for t in g.entity_types():
+        doc = parse(g.skeleton(t, 194))
+        assert doc.entity_type == t and doc.header.archive_version == 194
+        lay = g.layout(doc)
+        for sec in lay["sections"]:
+            assert sec["unknown"] == [], (t, sec["title"], sec["unknown"])
+            for slot in sec["slots"]:
+                assert not slot.get("invalid") and not slot.get("mismatch"), (t, slot["path"])
+                assert slot["present"] or not slot["required"] or not sec["present"], (t, slot["path"])
+    assert g.skeleton("Buff").splitlines()[3] == 'onReapplyDuplicateType "PrioritizeOldBuffs"'   # "Invalid" is never the default

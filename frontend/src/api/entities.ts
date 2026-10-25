@@ -19,6 +19,7 @@ const enc = encodeURIComponent
 export const entitiesApi = {
   list: (f: EntityFilters = {}) => api.get<EntitySummary[]>(`/entities${qs({ limit: 5000, ...f })}`),
   types: () => api.get<TypeCount[]>('/entities/types'),
+  definitionTypes: () => api.get<string[]>('/entities/definition-types'),
   get: (name: string) => api.get<EntityDetail>(`/entities/${enc(name)}`),
   text: (name: string, mode: 'preserve' | 'pretty' = 'preserve') => api.get<string>(`/entities/${enc(name)}/text${qs({ mode })}`),
   putText: (name: string, text: string) => api.put<EntityDetail>(`/entities/${enc(name)}/text`, { text }),
@@ -26,7 +27,7 @@ export const entitiesApi = {
   revert: (name: string) => api.post<EntityDetail>(`/entities/${enc(name)}/revert`),
   write: (name: string, mode: 'preserve' | 'pretty' = 'preserve') =>
     api.post<{ written: string; entity: EntitySummary }>(`/entities/${enc(name)}/write${qs({ mode })}`),
-  create: (body: { name: string; text?: string; template?: string; ownStrings?: boolean }) =>
+  create: (body: { name: string; text?: string; template?: string; entityType?: string; ownStrings?: boolean }) =>
     api.post<EntityDetail>('/entities', body),
   remove: (name: string, moveFile = true) =>
     api.del<{ deleted: string; movedTo: string | null }>(`/entities/${enc(name)}${qs({ move_file: moveFile })}`),

@@ -35,7 +35,7 @@ export function SubBlock({ item, entityType, onEdit, busy, depth, removable }: P
         </button>
         {removable && <button type="button" className={styles.remove} disabled={busy} onClick={() => setConfirm(true)} title="Remove this block"><Trash2 size={12} /></button>}
       </div>
-      {open && <div className={styles.body}><BlockBody items={item.items} entityType={entityType} onEdit={onEdit} busy={busy} depth={depth} /></div>}
+      {open && <div className={styles.body}><BlockBody items={item.items} entityType={entityType} onEdit={onEdit} busy={busy} depth={depth} parent={sec.path} /></div>}
       {confirm && (
         <ConfirmDialog title="Remove block" confirmLabel="Remove" danger onCancel={() => setConfirm(false)}
                        onConfirm={() => { onEdit([{ op: 'remove', path: sec.path }]); setConfirm(false) }}>

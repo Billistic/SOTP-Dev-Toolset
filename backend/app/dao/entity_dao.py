@@ -62,6 +62,15 @@ class EntityDAO(BaseDAO[Entity]):
             .order_by(Entity.category, Entity.entity_type)).all()
         return [{"entityType": t, "category": c, "count": n, "errors": int(e or 0)} for t, c, n, e in rows]
 
+    def archive_version(self, project_id: int, default: int = 194) -> int:
+        """The SinsArchiveVersion most of the project's files carry (new files match their siblings)."""
+        seen: dict[int, int] = {}
+        for (tree,) in self.db.execute(select(Entity.tree_json).where(Entity.project_id == project_id).limit(200)):
+            v = ((tree or {}).get("header") or {}).get("archiveVersion")
+            if isinstance(v, int):
+                seen[v] = seen.get(v, 0) + 1
+        return max(seen, key=seen.get) if seen else default
+
     def faction_counts(self, project_id: int) -> list[dict[str, Any]]:
         rows = self.db.execute(select(Entity.race, Entity.faction, func.count())
                                .where(Entity.project_id == project_id).group_by(Entity.race, Entity.faction)).all()

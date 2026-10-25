@@ -31,6 +31,7 @@ export interface Tile {
   title: string
   subtitle?: string
   items: Item[]
+  parent?: string     // the block a free-form field added in this tile goes into ('' = top level)
 }
 
 interface Resolved { spec: FieldSpec; path: string; raw: string | undefined }
@@ -134,7 +135,7 @@ export function planForm(layout: EntityLayout, resolved: Resolved[], carriesWeap
       } else if (isSmall(it)) {
         push(group, it)
       } else {
-        blockTiles.push({ key: `block:${it.section.path}`, kind: 'block', group, title: it.label, subtitle: it.section.subtitle ?? undefined, items: it.items })
+        blockTiles.push({ key: `block:${it.section.path}`, kind: 'block', group, title: it.label, subtitle: it.section.subtitle ?? undefined, items: it.items, parent: it.section.path })
       }
       continue
     }
@@ -159,7 +160,7 @@ export function planForm(layout: EntityLayout, resolved: Resolved[], carriesWeap
   const extras = [...blockTiles, ...repeatTiles.values()]
   for (const g of GROUP_ORDER) {
     const items = groups.get(g)
-    if (items?.length) tiles.push({ key: `group:${g}`, kind: 'group', group: g, title: g, items })
+    if (items?.length) tiles.push({ key: `group:${g}`, kind: 'group', group: g, title: g, items, parent: '' })
     if (g === 'Combat' && carriesWeapons) tiles.push({ key: 'weapons', kind: 'weapons', group: g, title: 'Weapons', items: [] })
     for (const t of extras) if (t.group === g) tiles.push(t)
   }

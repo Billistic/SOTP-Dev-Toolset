@@ -302,7 +302,7 @@ export interface IngestStats {
 }
 
 export interface EditChange {
-  op: 'set' | 'setRaw' | 'add' | 'remove' | 'clone' | 'move' | 'insertText'
+  op: 'set' | 'setRaw' | 'add' | 'remove' | 'clone' | 'move' | 'insertText' | 'switch'   // switch: a condition field's new option, its fields swapped in
   path?: string
   value?: unknown
   raw?: string

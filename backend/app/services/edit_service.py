@@ -17,6 +17,7 @@ from ..dao.string_dao import PRIMARY_STR
 from ..models import Entity, GameString, Project
 from ..models.project import utcnow
 from ..sins import Document, Node, parse
+from ..sins.grammar import grammar
 from ..sins.schemas import schema_for
 from ..sins.schemas.faction import strip_faction_suffix
 from ..sins.schemas.references import STRING, classify_key
@@ -52,6 +53,7 @@ class EditService:
                          | {"op": "clone", "path": ...}                      duplicate a block right after itself
                          | {"op": "move", "path": ..., "offset": -1 | 1}     reorder among same-key siblings
                          | {"op": "insertText", "parent": path|"", "text": ..., "after": path|None, "afterLast": [key, ...]}
+                         | {"op": "switch", "path": ..., "value": ...}       a condition field's new option, with its fields swapped in
         With ``create_strings`` a string-ID field pointed at an unknown ID gets a placeholder string row.
         """
         doc = Document.from_json(entity.tree_json)
@@ -92,6 +94,8 @@ class EditService:
                 for new in reversed(_fragment(str(ch["text"]))):   # keep fragment order when inserting after
                     parent.insert(new, after=after)
                     touched.extend(n for _, n in new.walk() if not n.is_block)
+            elif op == "switch":
+                touched.extend(self._switch(doc, ch["path"], str(ch["value"])))
             else:
                 raise EditError(f"unknown op '{op}'")
         sync_counts(doc.root)
@@ -99,6 +103,24 @@ class EditService:
             for node in touched:
                 self._ensure_string(project, node)
         return self._store(project, entity, doc)
+
+    @staticmethod
+    def _switch(doc: Document, path: str, value: str) -> list[Node]:
+        """Set a condition field and replace the fields its old option implied with the new option's (shared ones keep their values)."""
+        try:
+            node, old, plan = grammar().branch_swap(doc, path, value)
+        except ValueError as exc:
+            raise EditError(str(exc)) from exc
+        node.set_value(value)
+        for n in old:
+            n.remove()
+        out: list[Node] = [node]
+        cursor = node
+        for piece in plan:
+            for new in [n.clone() for n in piece] if isinstance(piece, list) else _fragment(piece):
+                cursor = node.parent.insert(new, after=cursor)
+                out.extend(n for _, n in new.walk() if not n.is_block)
+        return out
 
     # ── raw-text edits ──────────────────────────────────────────────────
     def replace_text(self, project: Project, entity: Entity, text: str) -> Entity:
@@ -108,8 +130,11 @@ class EditService:
         return self._store(project, entity, doc, raw_lines=True)
 
     def create(self, project: Project, name: str, text: str | None = None, *, template: str | None = None,
-               own_strings: bool = False) -> Entity:
-        """New entity from raw text or as a copy of ``template``; ``own_strings`` gives it fresh name/desc string IDs."""
+               entity_type: str | None = None, own_strings: bool = False) -> Entity:
+        """
+        New entity from raw text, as a copy of ``template`` or built from the grammar definition of ``entity_type``;
+        ``own_strings`` gives it fresh name/desc string IDs.
+        """
         if not re.fullmatch(r"[A-Za-z0-9_\-.]+", name or ""):
             raise EditError("entity names may only contain letters, digits, '_', '-' and '.'")
         if self.entities.by_name(project.id, name):
@@ -120,8 +145,13 @@ class EditService:
             if src is None:
                 raise EditError(f"template '{template}' not found")
             text = write(Document.from_json(src.tree_json), "preserve")
+        elif entity_type:
+            try:
+                text = grammar().skeleton(entity_type, self.entities.archive_version(project.id))
+            except KeyError:
+                raise EditError(f"no definition for entity type '{entity_type}'") from None
         if not text:
-            raise EditError("either text or template is required")
+            raise EditError("one of text, template or entityType is required")
         doc = parse(text)
         if doc.entity_type is None:
             raise EditError("text has no entityType")

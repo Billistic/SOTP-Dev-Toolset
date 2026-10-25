@@ -11,7 +11,9 @@ from app.models import Project  # noqa: E402
 from app.services.project_registry import ProjectRegistry  # noqa: E402
 from app.dao import EntityDAO  # noqa: E402
 from app.services.balance_service import BalanceService  # noqa: E402
-from app.services.edit_service import EditService  # noqa: E402
+from app.services.edit_service import EditError, EditService  # noqa: E402
+from app.sins import Document  # noqa: E402
+from app.sins.grammar import grammar  # noqa: E402
 from app.services.export_service import ExportService  # noqa: E402
 from app.services.ingest_service import IngestService  # noqa: E402
 
@@ -129,6 +131,89 @@ def test_string_ref_edit_creates_placeholder_string(db):
     # a non-string field never triggers it
     svc.apply(project, entity, [{"op": "set", "path": "MaxHullPoints", "value": 123}])
     assert svc.created_strings == []
+
+
+BLINK_TRIGGER = """TXT2
+SinsArchiveVersion 194
+entityType "Buff"
+onReapplyDuplicateType "PrioritizeOldBuffs"
+buffStackingLimitType "ForAllPlayers"
+stackingLimit 1
+allowFirstSpawnerToStack FALSE
+buffExclusivityForAIType "ExclusiveForAllPlayers"
+isInterruptable FALSE
+isChannelling FALSE
+numInstantActions 0
+numPeriodicActions 1
+periodicAction
+\tactionCountType "Infinite"
+\tactionIntervalTime
+\t\tLevel:0 4.000000
+\t\tLevel:1 4.000000
+\t\tLevel:2 3.000000
+\t\tLevel:3 3.000000
+\tbuffInstantActionType "ApplyBuffToSelf"
+\tinstantActionTriggerType "OnChance"
+\tbuffApplyChance
+\t\tLevel:0 0.200000
+\t\tLevel:1 0.300000
+\t\tLevel:2 0.300000
+\t\tLevel:3 0.350000
+\tbuffType "BuffFighterBlinkActive"
+\teffectInfo
+\t\teffectAttachInfo
+\t\t\tattachType "Center"
+\t\tsmallEffectName "Buff_FighterBlinkActivate"
+\t\tmediumEffectName "Buff_FighterBlinkActivate"
+\t\tlargeEffectName "Buff_FighterBlinkActivate"
+\t\tsoundID ""
+numOverTimeActions 0
+numEntityModifiers 0
+numEntityBoolModifiers 0
+numFinishConditions 1
+finishCondition
+\tfinishConditionType "OutOfRange"
+"""
+
+
+def test_build_buff_from_definition(db):
+    """Issue #19's walkthrough: BuffFighterBlinkTrigger built from the Buff definition, step by step as the form does it."""
+    session, project, out = db
+    svc = EditService(session)
+    new = svc.create(project, "BuffDefinitionWalkthrough", entity_type="Buff")
+    assert new.entity_type == "Buff" and new.error_count == 0
+    lay = lambda: grammar().layout(Document.from_json(new.tree_json))   # noqa: E731
+    count = lambda key: next(s for s in lay()["sections"][0]["slots"] if s["key"] == key)   # noqa: E731
+    levels = lambda path, vals: [{"op": "set", "path": f"{path}.Level:{i}", "value": v} for i, v in enumerate(vals)]   # noqa: E731
+    svc.apply(project, new, [
+        {"op": "set", "path": "buffStackingLimitType", "value": "ForAllPlayers"},
+        {"op": "set", "path": "stackingLimit", "value": 1},
+        {"op": "set", "path": "buffExclusivityForAIType", "value": "ExclusiveForAllPlayers"},
+        {"op": "insertText", "parent": "", "text": count("numPeriodicActions")["itemTemplate"], "afterLast": ["periodicAction", "numPeriodicActions"]},
+    ])
+    svc.apply(project, new, [
+        {"op": "switch", "path": "periodicAction.actionCountType", "value": "Infinite"},
+        {"op": "switch", "path": "periodicAction.buffInstantActionType", "value": "ApplyBuffToSelf"},
+        {"op": "switch", "path": "periodicAction.instantActionTriggerType", "value": "OnChance"},
+    ])
+    svc.apply(project, new, [
+        *levels("periodicAction.actionIntervalTime", [4.0, 4.0, 3.0, 3.0]),
+        *levels("periodicAction.buffApplyChance", [0.2, 0.3, 0.3, 0.35]),
+        {"op": "set", "path": "periodicAction.buffType", "value": "BuffFighterBlinkActive"},
+        *[{"op": "set", "path": f"periodicAction.effectInfo.{k}EffectName", "value": "Buff_FighterBlinkActivate"} for k in ("small", "medium", "large")],
+        {"op": "insertText", "parent": "", "text": count("numFinishConditions")["itemTemplate"], "afterLast": ["finishCondition", "numFinishConditions"]},
+    ])
+    svc.apply(project, new, [{"op": "switch", "path": "finishCondition.finishConditionType", "value": "OutOfRange"}])
+    assert svc.render(new).replace(chr(13), "") == BLINK_TRIGGER
+    # switching the action keeps what the new option shares with the old one (the OnChance trigger and its chances)
+    svc.apply(project, new, [{"op": "switch", "path": "periodicAction.buffInstantActionType", "value": "ApplyBuffToTargetsInRadius"}])
+    doc = Document.from_json(new.tree_json)
+    assert doc.scalar("periodicAction.instantActionTriggerType") == "OnChance"
+    assert doc.scalar("periodicAction.buffApplyChance.Level:3") == 0.35
+    with pytest.raises(EditError):
+        svc.apply(project, new, [{"op": "switch", "path": "periodicAction.buffInstantActionType", "value": "NotAnAction"}])
+    svc.delete(project, new)
+    session.commit()
 
 
 def test_create_from_template_and_delete(db):

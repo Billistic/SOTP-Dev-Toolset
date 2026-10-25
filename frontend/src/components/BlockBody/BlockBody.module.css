@@ -34,3 +34,10 @@
 
 .remove { color: var(--text-muted); display: grid; place-items: center; padding: 3px; border-radius: var(--radius-sm); }
 .remove:hover:not(:disabled) { color: var(--error); background: var(--bg-hover); }
+
+.custom { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-subtle); }
+.customKey, .customValue { font-family: var(--font-mono); font-size: 12px; min-width: 0; }
+.customKey { flex: 0 1 180px; }
+.customKey[aria-invalid='true'] { border-color: var(--error); }
+.customValue { flex: 1 1 160px; }
+.customAfter { flex: 0 1 170px; min-width: 0; font-size: var(--font-size-sm); }
