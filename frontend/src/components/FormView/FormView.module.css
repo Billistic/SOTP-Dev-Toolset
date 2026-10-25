@@ -27,12 +27,11 @@
 }
 .toolBtn:hover { color: var(--text-primary); background: var(--bg-hover); }
 
-.columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 12px 20px;
-  align-items: start;
-}
+.seg { display: inline-flex; flex-shrink: 0; margin-left: auto; border: 1px solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; white-space: nowrap; font-size: var(--font-size-sm); color: var(--text-secondary); border-right: 1px solid var(--border-subtle); }
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--text-primary); }
+.seg button[data-active] { background: var(--bg-active); color: var(--text-primary); }
 
 .hint { color: var(--text-secondary); padding: 10px 0; font-size: var(--font-size-sm); }
 
