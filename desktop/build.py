@@ -71,7 +71,12 @@ def build_exe() -> Path:
         "--collect-submodules", "app",          # the backend package (routers are imported dynamically by name)
         "--add-data", f"{BACKEND / 'app' / 'sins' / 'defs'}{os.pathsep}app/sins/defs",   # the entity grammar tables
         "--collect-submodules", "uvicorn",      # loop / protocol implementations are chosen at runtime
-        "--collect-submodules", "mcp",          # MCP SDK: transports / server pieces imported lazily
+        # MCP SDK: transports / server pieces imported lazily. Not all of "mcp": mcp.cli exits the
+        # interpreter on import without typer, which aborts PyInstaller's submodule collection.
+        "--collect-submodules", "mcp.server",
+        "--collect-submodules", "mcp.shared",
+        "--collect-submodules", "mcp.types",
+        "--collect-submodules", "mcp.os",
         "--collect-submodules", "mcp_types",
         "--collect-all", "webview",             # WebView2 loader DLLs
         "--hidden-import", "sqlalchemy.dialects.sqlite",
