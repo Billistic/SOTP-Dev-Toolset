@@ -70,6 +70,13 @@ class AssetDAO(BaseDAO[Asset]):
                                .group_by(Asset.kind, Asset.source).order_by(Asset.kind)).all()
         return [{"kind": k, "source": s, "count": n} for k, s, n in rows]
 
-    def get_named(self, project_id: int, kind: str, name: str) -> Asset | None:
-        return self.first(self.select().where(Asset.project_id == project_id, Asset.kind == kind,
-                                              Asset.name_lower == name.lower()).order_by(Asset.source))
+    def get_named(self, project_id: int, kind: str, name: str, source: str | None = None) -> Asset | None:
+        stmt = self.select().where(Asset.project_id == project_id, Asset.kind == kind, Asset.name_lower == name.lower())
+        if source:
+            stmt = stmt.where(Asset.source == source)
+        return self.first(stmt.order_by(Asset.source))
+
+    def of_kind(self, project_id: int, kind: str, source: str) -> list[Asset]:
+        """Every asset of one kind from one source, alphabetical (no paging, unlike list())."""
+        return self.scalars(self.select().where(Asset.project_id == project_id, Asset.kind == kind, Asset.source == source)
+                            .order_by(Asset.name_lower))

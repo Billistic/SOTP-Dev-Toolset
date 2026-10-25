@@ -1,7 +1,7 @@
 """Entity browsing, editing and per-entity relationships."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -38,6 +38,7 @@ class CreateIn(BaseModel):
     name: str
     text: str | None = None
     template: str | None = None      # copy an existing entity instead of supplying text
+    templateSource: Literal["mod", "vanilla"] = "mod"   # vanilla: the template is a base-game file
     entityType: str | None = None    # or build one from the grammar definition of this type
     ownStrings: bool = False         # give the copy its own <Name>_Name / <Name>_Desc strings
 
@@ -63,12 +64,18 @@ def definition_types():
     return grammar().entity_types()
 
 
+@router.get("/vanilla-templates")
+def vanilla_templates(db: Session = Depends(get_db), project: Project = Depends(get_project)):
+    """Base-game entities that New entity can copy (needs the project's Base game root)."""
+    return EditService(db).vanilla_templates(project)
+
+
 @router.post("", status_code=201)
 def create_entity(body: CreateIn, db: Session = Depends(get_db), project: Project = Depends(get_project)):
     svc = EditService(db)
     try:
-        entity = svc.create(project, body.name, body.text, template=body.template, entity_type=body.entityType,
-                            own_strings=body.ownStrings)
+        entity = svc.create(project, body.name, body.text, template=body.template, template_source=body.templateSource,
+                            entity_type=body.entityType, own_strings=body.ownStrings)
     except EditError as exc:
         raise HTTPException(400, str(exc))
     return {**_detail(entity, db, project), "createdStrings": [s.to_dict() for s in svc.created_strings]}

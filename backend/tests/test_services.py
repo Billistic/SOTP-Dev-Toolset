@@ -371,3 +371,42 @@ def test_mod_assets_are_not_hidden_behind_vanilla(db):
         for a in fake:
             session.delete(a)
         session.commit()
+
+
+def test_create_from_base_game_template(db, tmp_path, gameinfo):
+    """Issue #18: New entity can copy a base-game file when the project has a Base game root."""
+    from app.dao import AssetDAO
+    from app.models import Asset
+    from app.services import asset_indexer
+    session, project, _ = db
+    svc = EditService(session)
+    assert svc.vanilla_templates(project) == {"available": False, "templates": [], "binary": 0}
+    vanilla = tmp_path / "vanilla"
+    (vanilla / "GameInfo").mkdir(parents=True)
+    able = (gameinfo / "Frigate_UNSC_Able_Cole.entity").read_bytes()
+    (vanilla / "GameInfo" / "Frigate_VanillaTest.entity").write_bytes(able)
+    (vanilla / "GameInfo" / "Frigate_VanillaBin.entity").write_bytes(b"BIN\x00\x01\x02")
+    project.vanilla_root = str(vanilla)
+    rows = list(asset_indexer.index_root(vanilla, include_definitions=True))
+    assert {a.name: a.meta for a in rows if a.kind == "entity"} == {
+        "Frigate_VanillaBin": {"binary": True}, "Frigate_VanillaTest": {"entityType": "Frigate"}}
+    for a in rows:
+        a.meta = {} if a.kind == "entity" else a.meta     # as indexed before entity types were recorded
+    AssetDAO(session).replace_source(project.id, "vanilla", rows)
+    session.commit()
+    try:
+        listing = svc.vanilla_templates(project)            # backfills the missing types
+        assert listing == {"available": True, "binary": 1,
+                           "templates": [{"name": "Frigate_VanillaTest", "entityType": "Frigate"}]}
+        new = svc.create(project, "Frigate_FromVanilla", template="Frigate_VanillaTest", template_source="vanilla")
+        assert new.entity_type == "Frigate" and new.is_dirty and new.source_missing
+        assert svc.render(new).encode() == able
+        with pytest.raises(EditError, match="binary"):
+            svc.create(project, "Frigate_FromBin", template="Frigate_VanillaBin", template_source="vanilla")
+        with pytest.raises(EditError, match="not found"):
+            svc.create(project, "Frigate_FromNone", template="Frigate_UNSC_Able_Cole", template_source="vanilla")
+        svc.delete(project, new)
+    finally:
+        project.vanilla_root = None
+        AssetDAO(session).replace_source(project.id, "vanilla", [])
+        session.commit()

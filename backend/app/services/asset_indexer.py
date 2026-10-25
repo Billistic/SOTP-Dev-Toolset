@@ -6,7 +6,9 @@ vertex data after the ``MeshData`` block we care about.
 """
 from __future__ import annotations
 
+import codecs
 import hashlib
+import re
 from pathlib import Path
 from typing import Iterator
 
@@ -145,7 +147,21 @@ def _entity_names(root: Path) -> Iterator[Asset]:
     folder = root / "GameInfo"
     if folder.is_dir():
         for p in sorted(folder.glob("*.entity")):
-            yield Asset(kind="entity", name=p.stem, name_lower=p.stem.lower(), path=_rel(root, p), size_bytes=p.stat().st_size)
+            yield Asset(kind="entity", name=p.stem, name_lower=p.stem.lower(), path=_rel(root, p),
+                        size_bytes=p.stat().st_size, meta=entity_header_meta(p))
+
+
+_ENTITY_TYPE_RE = re.compile(rb'entityType\s+"([^"]+)"')
+
+
+def entity_header_meta(path: Path) -> dict:
+    """{"entityType": ...} from a text entity's first lines, or {"binary": True} for an unconverted BIN file."""
+    with path.open("rb") as f:
+        head = f.read(1024)
+    if not head.removeprefix(codecs.BOM_UTF8).startswith(b"TXT"):
+        return {"binary": True}
+    m = _ENTITY_TYPE_RE.search(head)
+    return {"entityType": m.group(1).decode("utf-8", "replace")} if m else {}
 
 
 def _string_ids(root: Path) -> Iterator[Asset]:

@@ -129,6 +129,9 @@ export interface IncomingReference {
 
 export interface TypeCount { entityType: string; category: string; count: number; errors: number }
 
+/** Base-game entity files New entity can copy; `binary` counts unconverted BIN files left out of `templates`. */
+export interface VanillaTemplates { available: boolean; templates: { name: string; entityType: string }[]; binary: number }
+
 export interface DiagnosticsSummary {
   bySeverity: Record<string, number>
   byCode: { code: string; severity: string; count: number }[]

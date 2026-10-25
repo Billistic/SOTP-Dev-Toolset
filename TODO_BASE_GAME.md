@@ -41,6 +41,11 @@ was deferred for the same reason). Set the project's *Base game root* first.
 - [ ] **Default numbers**: these are `0` / `0.000000` / `FALSE`. Consider vanilla-typical
       defaults (e.g. `stackingLimit` is `-1` or `1` in practice, never `0`).
 
+## New entity from a base-game file (issue #18)
+- [ ] Check the **Base game** group in New entity against the real install: the entity type is read
+      from each file's first 1 KB (`asset_indexer.entity_header_meta`), and anything not starting
+      with `TXT` counts as BIN. Confirm stock files match that, and that copies parse cleanly.
+
 ## References
 - [ ] **Particle and sound pickers**: index the vanilla particle and sound names so
       `smallEffectName` / `mediumEffectName` / `largeEffectName` / `soundID` (and other

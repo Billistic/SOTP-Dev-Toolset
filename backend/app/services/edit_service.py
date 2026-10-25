@@ -5,6 +5,7 @@ export service writes them back to disk.
 """
 from __future__ import annotations
 
+import codecs
 import re
 import shutil
 from pathlib import Path
@@ -22,6 +23,7 @@ from ..sins.schemas import schema_for
 from ..sins.schemas.faction import strip_faction_suffix
 from ..sins.schemas.references import STRING, classify_key
 from ..sins.writer import sync_counts, write
+from .asset_indexer import entity_header_meta
 from .entity_rows import build_children, populate_entity
 from .faction_service import FactionService
 from .manifest_service import ManifestService
@@ -130,9 +132,10 @@ class EditService:
         return self._store(project, entity, doc, raw_lines=True)
 
     def create(self, project: Project, name: str, text: str | None = None, *, template: str | None = None,
-               entity_type: str | None = None, own_strings: bool = False) -> Entity:
+               template_source: str = "mod", entity_type: str | None = None, own_strings: bool = False) -> Entity:
         """
-        New entity from raw text, as a copy of ``template`` or built from the grammar definition of ``entity_type``;
+        New entity from raw text, as a copy of ``template`` (a project entity, or a base-game file when
+        ``template_source`` is "vanilla") or built from the grammar definition of ``entity_type``;
         ``own_strings`` gives it fresh name/desc string IDs.
         """
         if not re.fullmatch(r"[A-Za-z0-9_\-.]+", name or ""):
@@ -140,7 +143,9 @@ class EditService:
         if self.entities.by_name(project.id, name):
             raise EditError(f"entity '{name}' already exists")
         self.created_strings = []
-        if template:
+        if template and template_source == "vanilla":
+            text = self._vanilla_text(project, template)
+        elif template:
             src = self.entities.by_name(project.id, template)
             if src is None:
                 raise EditError(f"template '{template}' not found")
@@ -168,6 +173,34 @@ class EditService:
         self.validation.run_entity(project, entity)
         self.db.commit()
         return entity
+
+    def vanilla_templates(self, project: Project) -> dict[str, Any]:
+        """Base-game entity files that can be copied (text ones, with their type) and how many are unconverted BIN files."""
+        root = Path(project.vanilla_root) if project.vanilla_root else None
+        if root is None or not root.is_dir():
+            return {"available": False, "templates": [], "binary": 0}
+        rows = self.assets.of_kind(project.id, "entity", "vanilla")
+        stale = [a for a in rows if "entityType" not in a.meta and "binary" not in a.meta]   # indexed before types were recorded
+        for a in stale:
+            path = root / (a.path or "")
+            if path.is_file():
+                a.meta = entity_header_meta(path)
+        if stale:
+            self.db.commit()
+        return {"available": True, "binary": sum(1 for a in rows if a.meta.get("binary")),
+                "templates": [{"name": a.name, "entityType": a.meta["entityType"]} for a in rows if a.meta.get("entityType")]}
+
+    def _vanilla_text(self, project: Project, name: str) -> str:
+        asset = self.assets.get_named(project.id, "entity", name, source="vanilla")
+        if asset is None or not project.vanilla_root:
+            raise EditError(f"base-game entity '{name}' not found")
+        path = Path(project.vanilla_root) / (asset.path or "")
+        if not path.is_file():
+            raise EditError(f"base-game file '{asset.path}' is missing; re-ingest the project")
+        raw = path.read_bytes()
+        if not raw.removeprefix(codecs.BOM_UTF8).startswith(b"TXT"):
+            raise EditError(f"'{asset.path}' is a binary (BIN) file; convert it to text with ConvertData first")
+        return raw.decode("utf-8-sig", errors="replace")
 
     def delete(self, project: Project, entity: Entity, *, move_file: bool = True) -> dict[str, Any]:
         """Remove the entity; its file (if any) is moved to ``.sotp-trash`` rather than destroyed."""
